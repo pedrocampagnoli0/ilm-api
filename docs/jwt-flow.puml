@@ -1,0 +1,98 @@
+  @startuml ILM — JWT Auth Flow
+  !theme plain
+  skinparam backgroundColor #FEFEFE
+  skinparam defaultFontName "Segoe UI"
+  skinparam defaultFontSize 11
+  skinparam shadowing false
+  skinparam RoundCorner 6
+  skinparam SequenceLifeLineBorderColor #94A3B8
+  skinparam SequenceGroupBorderColor #CBD5E1
+  skinparam SequenceGroupBackgroundColor #F8FAFC
+  skinparam SequenceDividerBackgroundColor #EFF6FF
+  skinparam ParticipantBackgroundColor #FFFFFF
+  skinparam ParticipantBorderColor #94A3B8
+  skinparam DatabaseBackgroundColor #FFF7ED
+  skinparam NoteBackgroundColor #FFFBEB
+  skinparam NoteBorderColor #CBD5E1
+  skinparam ArrowColor #475569
+
+  title JWT Authentication & Authorization Flow
+
+  actor User as U
+  participant "React Frontend" as FE #F0F9FF
+  participant "Supabase Auth" as AUTH #FEF3C7
+  participant "NestJS API" as API #F0FDF4
+  database "PostgreSQL" as DB #FFF7ED
+
+  == LOGIN (unchanged — Supabase OTP) ==
+
+  U -> FE : Enter email
+  FE -> AUTH : check_usuario_email_exists(email)
+  AUTH -> DB : user exists + ativo + municipio ativo?
+  DB --> AUTH : ok
+  AUTH --> U : OTP email
+
+  U -> FE : Enter OTP code
+  FE -> AUTH : verifyOtp(email, code)
+  AUTH --> FE : JWT signed with JWT_SECRET
+
+  note over AUTH
+    **JWT payload:**
+    { sub: "a1b2c3d4-...",
+      email: "juliana@escola.com",
+      role: "authenticated" }
+    No perfil, no municipio — just identity
+  end note
+
+  FE -> FE : Store in localStorage
+
+  == MIGRATED REQUEST (escola via NestJS) ==
+
+  U -> FE : Open /admin/escolas
+  FE -> API : **GET /api/escolas**\nBearer {jwt}
+  activate API
+
+  group #F8FAFC ① JWT Validation — JwtStrategy
+      API -> API : Verify signature (HS256)\nwith SUPABASE_JWT_SECRET\n//no HTTP call to Supabase//
+      API -> API : Check exp not expired
+      API -> API : Extract sub = "a1b2c3d4-..."
+  end
+
+  group #F8FAFC ② User Resolution — validate()
+      API -> DB : SELECT usuario + perfil\nWHERE auth_user_id = sub
+      DB --> API : { perfil: "diretor",\nmunicipio_id: "xyz",\nescola_ids: ["abc"] }
+      API -> API : Attach to req.user
+  end
+
+  note right of API
+    **Replaces Supabase SQL helpers:**
+    current_perfil() → req.user.perfil
+    current_municipio_id() → req.user.municipio_id
+    can_diretor_see_*() → CASL ability
+  end note
+
+  group #F8FAFC ③ Authorization — CASL
+      API -> API : Build ability for "diretor":\ncan('read', 'escola', { id: {$in: escola_ids} })\ncan('update', 'escola', { id: {$in: escola_ids} })
+      API -> API : CaslGuard: can('read', 'Escola')? → ok
+  end
+
+  group #F8FAFC ④ Query — Prisma
+      API -> DB : escola.findMany()\nscoped by accessibleBy(ability)
+      DB --> API : [{ nome: "Escola Municipal..." }]
+  end
+
+  API --> FE : 200 { data: [...], total: 1 }
+  deactivate API
+  FE --> U : Render table
+
+  == NON-MIGRATED REQUEST (turma — still direct) ==
+
+  FE -> DB : supabase.from('turma')...\n//same JWT, RLS still active//
+  DB --> FE : { data: [...] }
+
+  note over FE, AUTH
+    Token refresh is automatic (Supabase client).
+    NestJS is stateless — no session, no sync needed.
+  end note
+
+  @enduml

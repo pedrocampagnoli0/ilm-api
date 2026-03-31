@@ -1,0 +1,134 @@
+@startuml ILM NestJS Migration — Phase 0 → Phase 1 → Frontend Integration
+!theme plain
+skinparam backgroundColor #FEFEFE
+skinparam defaultFontName "Segoe UI"
+skinparam defaultFontSize 11
+skinparam shadowing false
+skinparam RoundCorner 6
+skinparam PackageBorderColor #94A3B8
+skinparam PackageBackgroundColor #F8FAFC
+skinparam ComponentBackgroundColor #FFFFFF
+skinparam DatabaseBackgroundColor #FFF7ED
+skinparam NodeBackgroundColor #F0FDF4
+skinparam ArrowColor #475569
+skinparam NoteBorderColor #CBD5E1
+skinparam NoteBackgroundColor #FFFBEB
+skinparam Padding 4
+skinparam PackagePadding 8
+
+title ILM — NestJS Migration Architecture
+
+' ============================================================
+' TOP ROW: Current State → Phase 0 → Phase 1
+' ============================================================
+
+together {
+
+package "CURRENT STATE" as CURRENT #FEE2E2 {
+    component "React Frontend\n(lermais-auth)" as FE_NOW #FFF
+    database "Supabase\n+ RLS + PostgREST" as SB_NOW #FFF7ED
+    FE_NOW -right-> SB_NOW : direct calls
+}
+
+package "PHASE 0 — Foundation" as PHASE0 #EFF6FF {
+    component "NestJS 11\n+ Prisma (23 tables)" as SCAFFOLD
+    component "JWT Strategy\n+ @CurrentUser()" as JWT
+    component "CASL AbilityFactory\n+ CaslGuard" as CASL
+    component "Pipes, Filters,\nSwagger, Health" as INFRA
+
+    SCAFFOLD -right-> JWT
+    JWT -right-> CASL
+    CASL -right-> INFRA
+}
+
+}
+
+CURRENT -down-> PHASE0
+
+' ============================================================
+' PHASE 1: Escola CRUD
+' ============================================================
+
+package "PHASE 1 — Escola CRUD" as PHASE1 #F0FDF4 {
+    component "EscolaController\nGET POST PATCH DELETE\n/api/escolas" as CTRL
+    component "EscolaService\nPrisma + accessibleBy()" as SVC
+    component "DTOs\nCreate / Update / Query" as DTOS
+
+    CTRL -right-> SVC
+    SVC -right-> DTOS
+}
+
+PHASE0 -down-> PHASE1
+
+' ============================================================
+' JWT FLOW (compact — inline with Phase 1)
+' ============================================================
+
+note bottom of PHASE1
+  **JWT Flow (per request):**
+  ① Frontend sends **Authorization: Bearer {jwt}** (issued by Supabase Auth)
+  ② **JwtStrategy** verifies signature with SUPABASE_JWT_SECRET (no HTTP call)
+  ③ **validate()** does Prisma lookup: auth_user_id → usuario + perfil → **req.user**
+  ④ **AbilityFactory** builds CASL rules for the role (replaces RLS)
+  ⑤ **EscolaService** queries with **accessibleBy(ability)** auto-scoping
+end note
+
+' ============================================================
+' DEPLOY + DB
+' ============================================================
+
+node "Railway / Fly.io\nsa-east-1 (gru)" as DEPLOY #F0FDF4
+
+database "Supabase PostgreSQL" as DB #FFF7ED
+
+PHASE1 -down-> DEPLOY
+DEPLOY -down-> DB : DATABASE_URL (pooler:6543)\nDIRECT_URL (direct:5432)
+
+' ============================================================
+' FRONTEND INTEGRATION
+' ============================================================
+
+package "FRONTEND INTEGRATION" as FE_INTEG #FDF4FF {
+    component "api-client.ts\nfetch + JWT from localStorage" as APIC
+    component "escola.service.ts\nlist / getById / create / update / delete" as ESVC
+
+    ESVC -right-> APIC
+}
+
+note right of FE_INTEG
+  **Migration steps (per page):**
+  ① Extract inline supabase → service methods
+  ② Service still calls Supabase (no change)
+  ③ Swap internals to NestJS API
+  ④ Verify parity: same data, same perms
+end note
+
+DEPLOY -down-> FE_INTEG
+
+' ============================================================
+' RUNTIME COEXISTENCE
+' ============================================================
+
+package "RUNTIME — Coexistence" as RUNTIME #F8FAFC {
+    component "React\nFrontend" as FE_RT #FFF
+    component "NestJS\nAPI" as NEST_RT #F0FDF4
+    database "Supabase\nPostgreSQL" as SB_RT #FFF7ED
+
+    FE_RT -right-> NEST_RT : escola (migrated)
+    FE_RT -down-> SB_RT : turma, aluno, etc.\n(not yet migrated)
+    NEST_RT -down-> SB_RT : Prisma\n(bypasses RLS)
+}
+
+note right of RUNTIME
+  **Auth unchanged:**
+  Supabase Auth issues JWT
+  Same token used for both
+  NestJS and direct Supabase calls
+
+  **RLS stays ON** until all call
+  sites for a table are migrated
+end note
+
+FE_INTEG -down-> RUNTIME
+
+@enduml

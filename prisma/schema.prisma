@@ -1,0 +1,154 @@
+// ─────────────────────────────────────────────────────────
+// ILM API — Prisma Schema (Phase 1-2: escola + municipio + dependencies)
+//
+// This is a PARTIAL schema covering tables needed for the
+// escola module. Run `prisma db pull` to replace with the
+// full auto-generated schema from Supabase.
+// ─────────────────────────────────────────────────────────
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ─── Enums ───────────────────────────────────────────────
+
+enum tamanho_camiseta {
+  P
+  M
+  G
+  GG
+}
+
+// ─── Tables ──────────────────────────────────────────────
+
+model perfil {
+  id         String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  nome       String
+  created_at DateTime  @default(now()) @db.Timestamptz(6)
+  updated_at DateTime  @default(now()) @updatedAt @db.Timestamptz(6)
+
+  usuarios usuario[]
+}
+
+model municipio {
+  id                  String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  nome                String
+  uf_sigla            String    @db.VarChar(2)
+  ativo               Boolean   @default(true)
+  logo_municipio_url  String?
+  created_at          DateTime  @default(now()) @db.Timestamptz(6)
+  updated_at          DateTime  @default(now()) @updatedAt @db.Timestamptz(6)
+
+  uf            uf     @relation(fields: [uf_sigla], references: [sigla])
+  escolas       escola[]
+  usuarios      usuario[]
+  livros_ativos municipio_livros_ativos[]
+}
+
+model usuario {
+  id                String             @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  nome              String
+  email             String             @unique
+  auth_user_id      String?            @unique @db.Uuid
+  perfil_id         String             @db.Uuid
+  municipio_id      String?            @db.Uuid
+  ativo             Boolean            @default(true)
+  tamanho_camiseta  tamanho_camiseta?
+  created_at        DateTime           @default(now()) @db.Timestamptz(6)
+  updated_at        DateTime           @default(now()) @updatedAt @db.Timestamptz(6)
+
+  perfil    perfil     @relation(fields: [perfil_id], references: [id])
+  municipio municipio? @relation(fields: [municipio_id], references: [id])
+
+  // Reverse relations
+  escolas_as_coord_inf  escola[] @relation("escola_coord_inf")
+  escolas_as_coord_fund escola[] @relation("escola_coord_fund")
+  escolas_as_diretor    escola[] @relation("escola_diretor")
+  turmas_as_professora  turma[]  @relation("turma_professora")
+  turmas_as_auxiliar    turma[]  @relation("turma_auxiliar")
+}
+
+model escola {
+  id            String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  nome          String
+  municipio_id  String   @db.Uuid
+  coord_inf_id  String?  @db.Uuid
+  coord_fund_id String?  @db.Uuid
+  diretor_id    String?  @db.Uuid
+  ativo         Boolean  @default(true)
+  created_at    DateTime @default(now()) @db.Timestamptz(6)
+  updated_at    DateTime @default(now()) @updatedAt @db.Timestamptz(6)
+
+  municipio  municipio @relation(fields: [municipio_id], references: [id])
+  coord_inf  usuario?  @relation("escola_coord_inf", fields: [coord_inf_id], references: [id])
+  coord_fund usuario?  @relation("escola_coord_fund", fields: [coord_fund_id], references: [id])
+  diretor    usuario?  @relation("escola_diretor", fields: [diretor_id], references: [id])
+
+  turmas turma[]
+
+  @@index([municipio_id])
+}
+
+model ciclo {
+  id         String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  nome       String
+  created_at DateTime @default(now()) @db.Timestamptz(6)
+  updated_at DateTime @default(now()) @updatedAt @db.Timestamptz(6)
+
+  turmas turma[]
+}
+
+model turma {
+  id             String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  nome           String
+  escola_id      String   @db.Uuid
+  ciclo_id       String   @db.Uuid
+  professora_id  String   @db.Uuid
+  auxiliar_id    String?  @db.Uuid
+  ativo          Boolean  @default(true)
+  created_at     DateTime @default(now()) @db.Timestamptz(6)
+  updated_at     DateTime @default(now()) @updatedAt @db.Timestamptz(6)
+
+  escola     escola  @relation(fields: [escola_id], references: [id])
+  ciclo      ciclo   @relation(fields: [ciclo_id], references: [id])
+  professora usuario @relation("turma_professora", fields: [professora_id], references: [id])
+  auxiliar   usuario? @relation("turma_auxiliar", fields: [auxiliar_id], references: [id])
+
+  @@index([escola_id, ciclo_id, ativo])
+}
+
+model uf {
+  sigla String @id @db.VarChar(2)
+  nome  String
+
+  municipios municipio[]
+
+  @@map("uf")
+}
+
+model livro {
+  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  titulo      String
+  ativo       Boolean  @default(true)
+  created_at  DateTime @default(now()) @db.Timestamptz(6)
+  updated_at  DateTime @default(now()) @updatedAt @db.Timestamptz(6)
+
+  municipios_ativos municipio_livros_ativos[]
+}
+
+model municipio_livros_ativos {
+  id            String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  municipio_id  String   @db.Uuid
+  livro_id      String   @db.Uuid
+  created_at    DateTime? @default(now()) @db.Timestamptz(6)
+
+  municipio municipio @relation(fields: [municipio_id], references: [id])
+  livro     livro     @relation(fields: [livro_id], references: [id])
+
+  @@unique([municipio_id, livro_id])
+  @@index([municipio_id])
+}

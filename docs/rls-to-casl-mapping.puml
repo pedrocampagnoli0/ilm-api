@@ -1,0 +1,105 @@
+@startuml ILM — RLS to CASL Migration Mapping
+!theme plain
+skinparam backgroundColor #FEFEFE
+skinparam defaultFontName "Segoe UI"
+skinparam defaultFontSize 12
+skinparam shadowing false
+skinparam RoundCorner 8
+skinparam PackageBorderColor #94A3B8
+skinparam NoteBackgroundColor #FFFBEB
+skinparam NoteBorderColor #CBD5E1
+
+title ILM — What Replaces What\nSupabase RLS → NestJS CASL + Prisma
+
+package "BEFORE — Supabase (Direct Client)" as BEFORE #FEE2E2 {
+
+    package "Identity Resolution (SQL functions)" as ID_SQL {
+        component "auth.uid()" as AUTH_UID
+        component "current_perfil()" as CUR_PERFIL
+        component "current_usuario_id()" as CUR_USER
+        component "current_municipio_id()" as CUR_MUNI
+    }
+
+    package "Authorization (RLS Policies)" as RLS_POLICIES {
+        component "can_diretor_see_escola()" as DIR_ESCOLA
+        component "can_diretor_see_turma()" as DIR_TURMA
+        component "can_coord_see_escola()" as COORD_ESCOLA
+        component "can_secretaria_see_escola()" as SEC_ESCOLA
+        component "professor can select turma\n(professora_id = auth.uid())" as PROF_TURMA
+        component "... 75+ more policies" as MORE_RLS
+    }
+
+    package "Query Layer (PostgREST)" as POSTGREST {
+        component "supabase.from('escola')\n  .select('*')" as QUERY_SB
+        component "Automatic RLS filtering\n(invisible to frontend)" as RLS_FILTER
+    }
+
+    AUTH_UID --> CUR_PERFIL
+    CUR_PERFIL --> RLS_POLICIES
+    QUERY_SB --> RLS_FILTER
+    RLS_FILTER --> RLS_POLICIES
+}
+
+package "AFTER — NestJS API" as AFTER #F0FDF4 {
+
+    package "Identity Resolution (JwtStrategy.validate)" as ID_NEST {
+        component "**JWT sub claim**\n→ auth.users.id" as JWT_SUB
+        component "**Prisma lookup**\nSELECT usuario + perfil\nWHERE auth_user_id = sub" as PRISMA_LOOKUP
+        component "**req.user** = {\n  id, perfil, municipio_id,\n  escola_ids, turma_ids\n}" as REQ_USER
+    }
+
+    package "Authorization (CASL AbilityFactory)" as CASL_AUTH {
+        component "**AbilityFactory.createForUser(user)**\nSingle file, ~100 lines\nreplaces ALL RLS policies" as ABILITY_FACTORY
+
+        note bottom of ABILITY_FACTORY
+          switch (user.perfil) {
+            case 'administrador':
+            case 'ilm':
+              can('manage', 'all');
+              break;
+            case 'secretaria':
+              can('manage', 'escola',
+                { municipio_id: user.municipio_id });
+              break;
+            case 'diretor':
+              can('read', 'escola',
+                { id: { $in: user.escola_ids } });
+              can('update', 'escola',
+                { id: { $in: user.escola_ids } });
+              break;
+            case 'coordenacao':
+              can('read', 'escola',
+                { id: { $in: user.escola_ids } });
+              break;
+            case 'professor':
+              can('read', 'escola',
+                { id: { $in: user.escola_ids } });
+              break;
+          }
+        end note
+    }
+
+    package "Query Layer (Prisma + CASL)" as PRISMA_LAYER {
+        component "**escola.findMany()**\naccessibleBy(ability, 'read')\nauto-scopes WHERE clause" as QUERY_PRISMA
+        component "Service-role connection\n(bypasses RLS entirely)" as SVC_ROLE
+    }
+
+    JWT_SUB --> PRISMA_LOOKUP
+    PRISMA_LOOKUP --> REQ_USER
+    REQ_USER --> ABILITY_FACTORY
+    ABILITY_FACTORY --> QUERY_PRISMA
+    QUERY_PRISMA --> SVC_ROLE
+}
+
+' === MAPPING ARROWS ===
+
+AUTH_UID -[#2563EB,dashed]-> JWT_SUB : <color:#2563EB>replaced by</color>
+CUR_PERFIL -[#2563EB,dashed]-> PRISMA_LOOKUP : <color:#2563EB>replaced by</color>
+CUR_USER -[#2563EB,dashed]-> PRISMA_LOOKUP : <color:#2563EB>replaced by</color>
+CUR_MUNI -[#2563EB,dashed]-> PRISMA_LOOKUP : <color:#2563EB>replaced by</color>
+DIR_ESCOLA -[#2563EB,dashed]-> ABILITY_FACTORY : <color:#2563EB>replaced by</color>
+COORD_ESCOLA -[#2563EB,dashed]-> ABILITY_FACTORY : <color:#2563EB>replaced by</color>
+SEC_ESCOLA -[#2563EB,dashed]-> ABILITY_FACTORY : <color:#2563EB>replaced by</color>
+QUERY_SB -[#2563EB,dashed]-> QUERY_PRISMA : <color:#2563EB>replaced by</color>
+
+@enduml

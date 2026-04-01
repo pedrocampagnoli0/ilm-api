@@ -24,4 +24,25 @@ export class ListEscolasQueryDto extends PaginationQueryDto {
   @IsString()
   @MaxLength(100)
   search?: string;
+
+  @ApiPropertyOptional({ description: 'Filter by coord_inf_id (coordinator infantil)' })
+  @IsOptional()
+  @IsUUID()
+  coord_inf_id?: string;
+
+  @ApiPropertyOptional({ description: 'Filter by coord_fund_id (coordinator fundamental)' })
+  @IsOptional()
+  @IsUUID()
+  coord_fund_id?: string;
+
+  @ApiPropertyOptional({ description: 'Filter by diretor_id' })
+  @IsOptional()
+  @IsUUID()
+  diretor_id?: string;
+
+  @ApiPropertyOptional({ description: 'Filter by multiple IDs (comma-separated UUIDs)' })
+  @IsOptional()
+  @IsString()
+  @MaxLength(2000)
+  ids?: string;
 }

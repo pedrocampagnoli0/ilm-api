@@ -46,6 +46,21 @@ export class EscolaService {
         nome: { contains: query.search, mode: 'insensitive' },
       });
     }
+    if (query.coord_inf_id) {
+      filters.push({ coord_inf_id: query.coord_inf_id });
+    }
+    if (query.coord_fund_id) {
+      filters.push({ coord_fund_id: query.coord_fund_id });
+    }
+    if (query.diretor_id) {
+      filters.push({ diretor_id: query.diretor_id });
+    }
+    if (query.ids) {
+      const idList = query.ids.split(',').map((s) => s.trim()).filter(Boolean);
+      if (idList.length > 0) {
+        filters.push({ id: { in: idList } });
+      }
+    }
 
     const where: Prisma.escolaWhereInput = { AND: filters };
 

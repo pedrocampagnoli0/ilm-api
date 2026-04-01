@@ -25,4 +25,10 @@ export class ListMunicipiosQueryDto extends PaginationQueryDto {
   @IsString()
   @MaxLength(100)
   search?: string;
+
+  @ApiPropertyOptional({ description: 'Filter by multiple IDs (comma-separated UUIDs)' })
+  @IsOptional()
+  @IsString()
+  @MaxLength(2000)
+  ids?: string;
 }

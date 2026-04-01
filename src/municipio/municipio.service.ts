@@ -40,6 +40,12 @@ export class MunicipioService {
         nome: { contains: query.search, mode: 'insensitive' },
       });
     }
+    if (query.ids) {
+      const idList = query.ids.split(',').map((s) => s.trim()).filter(Boolean);
+      if (idList.length > 0) {
+        filters.push({ id: { in: idList } });
+      }
+    }
 
     const where: Prisma.municipioWhereInput = { AND: filters };
 

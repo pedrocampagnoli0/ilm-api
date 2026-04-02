@@ -54,8 +54,8 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
         escolas_as_coord_inf: { select: { id: true } },
         escolas_as_coord_fund: { select: { id: true } },
         escolas_as_diretor: { select: { id: true } },
-        turmas_as_professora: { select: { escola_id: true } },
-        turmas_as_auxiliar: { select: { escola_id: true } },
+        turmas_as_professora: { select: { id: true, escola_id: true } },
+        turmas_as_auxiliar: { select: { id: true, escola_id: true } },
       },
     });
 
@@ -71,6 +71,19 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     usuario.turmas_as_professora.forEach((t) => escolaIdSet.add(t.escola_id));
     usuario.turmas_as_auxiliar.forEach((t) => escolaIdSet.add(t.escola_id));
 
+    // Secretaria: load all escolas for their municipio
+    if (usuario.perfil.nome === 'secretaria' && usuario.municipio_id) {
+      const muniEscolas = await this.prisma.escola.findMany({
+        where: { municipio_id: usuario.municipio_id },
+        select: { id: true },
+      });
+      muniEscolas.forEach((e) => escolaIdSet.add(e.id));
+    }
+
+    const turmaIdSet = new Set<string>();
+    usuario.turmas_as_professora.forEach((t) => turmaIdSet.add(t.id));
+    usuario.turmas_as_auxiliar.forEach((t) => turmaIdSet.add(t.id));
+
     const user: AuthenticatedUser = {
       id: usuario.id,
       authUserId: payload.sub,
@@ -79,6 +92,7 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
       perfil: usuario.perfil.nome as AuthenticatedUser['perfil'],
       municipioId: usuario.municipio_id,
       escolaIds: [...escolaIdSet],
+      turmaIds: [...turmaIdSet],
       ativo: usuario.ativo,
     };
 

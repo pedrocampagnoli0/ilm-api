@@ -8,6 +8,8 @@ import { CaslModule } from './common/casl/casl.module.js';
 import { HealthModule } from './health/health.module.js';
 import { EscolaModule } from './escola/escola.module.js';
 import { MunicipioModule } from './municipio/municipio.module.js';
+import { TurmaModule } from './turma/turma.module.js';
+import { CicloModule } from './ciclo/ciclo.module.js';
 
 @Module({
   imports: [
@@ -34,6 +36,8 @@ import { MunicipioModule } from './municipio/municipio.module.js';
     HealthModule,
     EscolaModule,
     MunicipioModule,
+    TurmaModule,
+    CicloModule,
   ],
   providers: [
     { provide: APP_GUARD, useClass: ThrottlerGuard },

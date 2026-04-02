@@ -14,5 +14,6 @@ export interface AuthenticatedUser {
   perfil: PerfilName;
   municipioId: string | null;
   escolaIds: string[]; // escola IDs this user can access (via diretor/coord/professor)
+  turmaIds: string[]; // turma IDs for professors/auxiliars (direct assignment)
   ativo: boolean;
 }

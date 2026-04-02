@@ -107,7 +107,56 @@ function defineMunicipioRules(
   }
 }
 
-// Future: defineTurmaRules, defineAlunoRules, etc.
+function defineTurmaRules(
+  can: Can,
+  cannot: Cannot,
+  user: AuthenticatedUser,
+) {
+  switch (user.perfil) {
+    case 'administrador':
+    case 'ilm':
+      can('manage', 'turma');
+      break;
+
+    case 'secretaria':
+      // Secretaria can read/create/update turmas in their municipio's escolas
+      if (user.escolaIds.length > 0) {
+        can('read', 'turma', { escola_id: { in: user.escolaIds } });
+        can('create', 'turma', { escola_id: { in: user.escolaIds } });
+        can('update', 'turma', { escola_id: { in: user.escolaIds } });
+      }
+      break;
+
+    case 'diretor':
+      // Diretor can read/update turmas in their escola
+      if (user.escolaIds.length > 0) {
+        can('read', 'turma', { escola_id: { in: user.escolaIds } });
+        can('update', 'turma', { escola_id: { in: user.escolaIds } });
+      }
+      break;
+
+    case 'coordenacao':
+      // Coordenador can read turmas in their coordinated escolas
+      if (user.escolaIds.length > 0) {
+        can('read', 'turma', { escola_id: { in: user.escolaIds } });
+      }
+      break;
+
+    case 'professor':
+      // Professor can only read their own turmas (assigned as professora or auxiliar)
+      if (user.turmaIds.length > 0) {
+        can('read', 'turma', { id: { in: user.turmaIds } });
+        can('update', 'turma', { id: { in: user.turmaIds } });
+      }
+      break;
+
+    default:
+      cannot('manage', 'turma');
+      break;
+  }
+}
+
+// Future: defineAlunoRules, defineAvaliacaoRules, etc.
 
 // ─── Factory ────────────────────────────────────────────
 
@@ -120,7 +169,8 @@ export class AbilityFactory {
 
     defineEscolaRules(can, cannot, user);
     defineMunicipioRules(can, cannot, user);
-    // Future: defineTurmaRules(can, cannot, user);
+    defineTurmaRules(can, cannot, user);
+    // Future: defineAlunoRules(can, cannot, user);
 
     return build();
   }

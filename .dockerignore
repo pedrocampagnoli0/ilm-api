@@ -1,0 +1,15 @@
+node_modules
+dist
+.env
+.env.*
+.git
+.gitignore
+coverage
+test
+e2e
+docs
+scripts
+*.md
+*.log
+*.tsbuildinfo
+.playwright-mcp

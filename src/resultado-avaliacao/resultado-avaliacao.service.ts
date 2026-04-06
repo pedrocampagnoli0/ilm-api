@@ -112,27 +112,27 @@ export class ResultadoAvaliacaoService {
 
     // Call the existing DB function — preserves all trigger logic
     // Set auth.uid() so the function can log who made the change
-    try {
-      const resultadosJson = JSON.stringify(dto.resultados);
+    const resultadosJson = JSON.stringify(dto.resultados);
 
-      // Set the JWT claims so auth.uid() works inside the function
-      await this.prisma.$executeRawUnsafe(
-        `SELECT set_config('request.jwt.claims', '{"sub":"${user.authUserId}"}', true)`,
+    // Run in a transaction so set_config + function call share the same session
+    const result = await this.prisma.$transaction(async (tx) => {
+      // Set auth.uid() so the DB function can log who made the change
+      await tx.$executeRawUnsafe(
+        `SELECT set_config('request.jwt.claims', $1::text, true)`,
+        JSON.stringify({ sub: user.authUserId }),
       );
 
-      const result = await this.prisma.$queryRawUnsafe<Array<Record<string, unknown>>>(
+      const rows = await tx.$queryRawUnsafe<Array<Record<string, unknown>>>(
         `SELECT * FROM upsert_resultados_avaliacao_batch($1::uuid, $2::uuid, $3::jsonb)`,
         dto.avaliacao_id,
         dto.turma_id,
         resultadosJson,
       );
 
-      return { data: result?.[0] ?? result };
-    } catch (error: unknown) {
-      const msg = error instanceof Error ? error.message : String(error);
-      console.error('upsert_resultados_avaliacao_batch error:', msg);
-      throw new InternalServerErrorException(`Erro ao salvar resultados: ${msg}`);
-    }
+      return rows;
+    });
+
+    return { data: result?.[0] ?? result };
   }
 
   /**

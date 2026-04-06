@@ -110,14 +110,23 @@ export class ResultadoAvaliacaoService {
     }
 
     // Call the existing DB function — preserves all trigger logic
-    const result = await this.prisma.$queryRawUnsafe(
-      `SELECT upsert_resultados_avaliacao_batch($1::uuid, $2::uuid, $3::jsonb)`,
-      dto.avaliacao_id,
-      dto.turma_id,
-      JSON.stringify(dto.resultados),
-    );
-
-    return { data: result };
+    // Use named parameters to match the function signature
+    try {
+      const result = await this.prisma.$queryRawUnsafe(
+        `SELECT upsert_resultados_avaliacao_batch(
+          in_avaliacao_id := $1::uuid,
+          in_turma_id := $2::uuid,
+          in_resultados := $3::jsonb
+        )`,
+        dto.avaliacao_id,
+        dto.turma_id,
+        JSON.stringify(dto.resultados),
+      );
+      return { data: result };
+    } catch (error: unknown) {
+      const msg = error instanceof Error ? error.message : 'Unknown error';
+      throw new Error(`upsert_resultados_avaliacao_batch failed: ${msg}`);
+    }
   }
 
   /**
@@ -133,7 +142,10 @@ export class ResultadoAvaliacaoService {
         resultado_count: number;
       }>
     >(
-      `SELECT * FROM get_avaliacao_change_history($1::uuid, $2::uuid)`,
+      `SELECT * FROM get_avaliacao_change_history(
+        in_turma_id := $1::uuid,
+        in_avaliacao_id := $2::uuid
+      )`,
       turmaId,
       avaliacaoId,
     );

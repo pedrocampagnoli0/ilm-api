@@ -10,6 +10,7 @@ import { EscolaModule } from './escola/escola.module.js';
 import { MunicipioModule } from './municipio/municipio.module.js';
 import { TurmaModule } from './turma/turma.module.js';
 import { CicloModule } from './ciclo/ciclo.module.js';
+import { UsuarioModule } from './usuario/usuario.module.js';
 
 @Module({
   imports: [
@@ -38,6 +39,7 @@ import { CicloModule } from './ciclo/ciclo.module.js';
     MunicipioModule,
     TurmaModule,
     CicloModule,
+    UsuarioModule,
   ],
   providers: [
     { provide: APP_GUARD, useClass: ThrottlerGuard },

@@ -156,6 +156,54 @@ function defineTurmaRules(
   }
 }
 
+function defineUsuarioRules(
+  can: Can,
+  cannot: Cannot,
+  user: AuthenticatedUser,
+) {
+  switch (user.perfil) {
+    case 'administrador':
+    case 'ilm':
+      can('manage', 'usuario');
+      break;
+
+    case 'secretaria':
+      // Secretaria can read/create/update usuarios in their municipio
+      if (user.municipioId) {
+        can('read', 'usuario', { municipio_id: user.municipioId });
+        can('create', 'usuario', { municipio_id: user.municipioId });
+        can('update', 'usuario', { municipio_id: user.municipioId });
+      }
+      break;
+
+    case 'diretor':
+      // Diretor can read usuarios in their escolas (teachers/coordinators)
+      // and always read themselves
+      can('read', 'usuario', { id: user.id });
+      if (user.municipioId) {
+        can('read', 'usuario', { municipio_id: user.municipioId });
+      }
+      break;
+
+    case 'coordenacao':
+      // Coordenador can read usuarios in their municipio
+      can('read', 'usuario', { id: user.id });
+      if (user.municipioId) {
+        can('read', 'usuario', { municipio_id: user.municipioId });
+      }
+      break;
+
+    case 'professor':
+      // Professor can only read themselves
+      can('read', 'usuario', { id: user.id });
+      break;
+
+    default:
+      cannot('manage', 'usuario');
+      break;
+  }
+}
+
 // Future: defineAlunoRules, defineAvaliacaoRules, etc.
 
 // ─── Factory ────────────────────────────────────────────
@@ -170,7 +218,7 @@ export class AbilityFactory {
     defineEscolaRules(can, cannot, user);
     defineMunicipioRules(can, cannot, user);
     defineTurmaRules(can, cannot, user);
-    // Future: defineAlunoRules(can, cannot, user);
+    defineUsuarioRules(can, cannot, user);
 
     return build();
   }

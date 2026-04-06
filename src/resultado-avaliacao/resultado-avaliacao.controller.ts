@@ -42,6 +42,14 @@ export class ResultadoAvaliacaoController {
     return this.resultadoService.upsertBatch(user, dto);
   }
 
+  @Post('radar')
+  @ApiOperation({ summary: 'Dados para radar report (F2 alunos com nível 1-2)' })
+  radar(
+    @Body() body: { avaliacao_ids: string[]; ciclo_id: string },
+  ) {
+    return this.resultadoService.radar(body.avaliacao_ids, body.ciclo_id);
+  }
+
   @Get('history/:turmaId/:avaliacaoId')
   @ApiOperation({ summary: 'Histórico de alterações de avaliação' })
   getChangeHistory(

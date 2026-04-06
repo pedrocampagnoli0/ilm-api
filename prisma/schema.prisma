@@ -23,6 +23,11 @@ enum tamanho_camiseta {
   GG
 }
 
+enum resultado_login {
+  sucesso
+  falha
+}
+
 // ─── Tables ──────────────────────────────────────────────
 
 model perfil {
@@ -43,12 +48,15 @@ model municipio {
   created_at          DateTime  @default(now()) @db.Timestamptz(6)
   updated_at          DateTime  @default(now()) @updatedAt @db.Timestamptz(6)
 
-  uf            uf     @relation(fields: [uf_sigla], references: [sigla])
-  escolas       escola[]
-  usuarios      usuario[]
-  alunos        aluno[]
-  avaliacoes    avaliacao[]
-  livros_ativos municipio_livros_ativos[]
+  uf                  uf     @relation(fields: [uf_sigla], references: [sigla])
+  escolas             escola[]
+  usuarios            usuario[]
+  alunos              aluno[]
+  avaliacoes          avaliacao[]
+  livros_ativos       municipio_livros_ativos[]
+  import_batches      import_batch[]
+  ranking_professores ranking_professor_diario[] @relation("ranking_prof_municipio")
+  ranking_escolas     ranking_escola_diario[]    @relation("ranking_escola_municipio")
 }
 
 model usuario {
@@ -72,6 +80,8 @@ model usuario {
   escolas_as_diretor    escola[] @relation("escola_diretor")
   turmas_as_professora  turma[]  @relation("turma_professora")
   turmas_as_auxiliar    turma[]  @relation("turma_auxiliar")
+  rankings              ranking_professor_diario[]
+  import_batches        import_batch[]
 }
 
 model escola {
@@ -90,8 +100,10 @@ model escola {
   coord_fund usuario?  @relation("escola_coord_fund", fields: [coord_fund_id], references: [id])
   diretor    usuario?  @relation("escola_diretor", fields: [diretor_id], references: [id])
 
-  turmas turma[]
-  alunos aluno[]
+  turmas              turma[]
+  alunos              aluno[]
+  ranking_professores ranking_professor_diario[] @relation("ranking_prof_escola")
+  ranking_escolas     ranking_escola_diario[]    @relation("ranking_escola_escola")
 
   @@index([municipio_id])
 }
@@ -102,8 +114,11 @@ model ciclo {
   created_at DateTime @default(now()) @db.Timestamptz(6)
   updated_at DateTime @default(now()) @updatedAt @db.Timestamptz(6)
 
-  turmas     turma[]
-  resultados resultado_avaliacao[]
+  turmas              turma[]
+  resultados          resultado_avaliacao[]
+  livros              livro[]
+  ranking_professores ranking_professor_diario[] @relation("ranking_prof_ciclo")
+  ranking_escolas     ranking_escola_diario[]    @relation("ranking_escola_ciclo")
 }
 
 model turma {
@@ -155,7 +170,9 @@ model tipo_avaliacao {
   created_at DateTime    @default(now()) @db.Timestamptz(6)
   updated_at DateTime    @default(now()) @updatedAt @db.Timestamptz(6)
 
-  avaliacoes avaliacao[]
+  avaliacoes          avaliacao[]
+  ranking_professores ranking_professor_diario[] @relation("ranking_prof_tipo")
+  ranking_escolas     ranking_escola_diario[]    @relation("ranking_escola_tipo")
 }
 
 model avaliacao {
@@ -232,12 +249,15 @@ model uf {
 }
 
 model livro {
-  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  titulo      String
-  ativo       Boolean  @default(true)
-  created_at  DateTime @default(now()) @db.Timestamptz(6)
-  updated_at  DateTime @default(now()) @updatedAt @db.Timestamptz(6)
+  id            String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  titulo        String
+  ciclo_id      String    @db.Uuid
+  flipbook_url  String?
+  ativo         Boolean   @default(true)
+  created_at    DateTime  @default(now()) @db.Timestamptz(6)
+  updated_at    DateTime  @default(now()) @updatedAt @db.Timestamptz(6)
 
+  ciclo             ciclo    @relation(fields: [ciclo_id], references: [id])
   municipios_ativos municipio_livros_ativos[]
 }
 
@@ -252,4 +272,116 @@ model municipio_livros_ativos {
 
   @@unique([municipio_id, livro_id])
   @@index([municipio_id])
+}
+
+// ─── Log / Ranking / Import ─────────────────────────────
+
+model log_tentativa_login {
+  id            String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  email         String?
+  resultado     resultado_login?
+  erro_detalhe  String?
+  ip            String?
+  user_agent    String?
+  criado_em     DateTime         @default(now()) @db.Timestamptz(6)
+}
+
+model ranking_professor_diario {
+  id                  String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  data_referencia     DateTime  @db.Date
+  professor_id        String    @db.Uuid
+  escola_id           String    @db.Uuid
+  municipio_id        String    @db.Uuid
+  ciclo_id            String    @db.Uuid
+  ciclo_nome          String
+  tipo_avaliacao_id   String    @db.Uuid
+  total_alunos        Int
+  pontuacao_total_sum Float
+  pontuacao_total_avg Float
+  posicao_escola      Int?
+  posicao_municipio   Int?
+  posicao_geral       Int?
+  created_at          DateTime? @default(now()) @db.Timestamptz(6)
+  updated_at          DateTime? @default(now()) @db.Timestamptz(6)
+
+  professor      usuario        @relation(fields: [professor_id], references: [id])
+  escola         escola         @relation("ranking_prof_escola", fields: [escola_id], references: [id])
+  municipio      municipio      @relation("ranking_prof_municipio", fields: [municipio_id], references: [id])
+  ciclo          ciclo          @relation("ranking_prof_ciclo", fields: [ciclo_id], references: [id])
+  tipo_avaliacao tipo_avaliacao @relation("ranking_prof_tipo", fields: [tipo_avaliacao_id], references: [id])
+}
+
+model ranking_escola_diario {
+  id                  String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  data_referencia     DateTime  @db.Date
+  escola_id           String    @db.Uuid
+  municipio_id        String    @db.Uuid
+  ciclo_id            String    @db.Uuid
+  ciclo_nome          String
+  tipo_avaliacao_id   String    @db.Uuid
+  total_alunos        Int
+  total_professores   Int
+  pontuacao_total_sum Float
+  pontuacao_total_avg Float
+  posicao_municipio   Int?
+  posicao_geral       Int?
+  created_at          DateTime? @default(now()) @db.Timestamptz(6)
+  updated_at          DateTime? @default(now()) @db.Timestamptz(6)
+
+  escola         escola         @relation("ranking_escola_escola", fields: [escola_id], references: [id])
+  municipio      municipio      @relation("ranking_escola_municipio", fields: [municipio_id], references: [id])
+  ciclo          ciclo          @relation("ranking_escola_ciclo", fields: [ciclo_id], references: [id])
+  tipo_avaliacao tipo_avaliacao @relation("ranking_escola_tipo", fields: [tipo_avaliacao_id], references: [id])
+}
+
+model import_batch {
+  id                       String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  municipio_id             String    @db.Uuid
+  usuario_id               String    @db.Uuid
+  status                   String    @default("pendente")
+  total_rows               Int       @default(0)
+  escolas_criadas          Int       @default(0)
+  escolas_existentes       Int       @default(0)
+  turmas_criadas           Int       @default(0)
+  turmas_existentes        Int       @default(0)
+  professores_criados      Int       @default(0)
+  professores_existentes   Int       @default(0)
+  coordenadores_criados    Int       @default(0)
+  coordenadores_existentes Int       @default(0)
+  diretores_criados        Int       @default(0)
+  diretores_existentes     Int       @default(0)
+  erros                    Int       @default(0)
+  undone_at                DateTime? @db.Timestamptz(6)
+  created_at               DateTime  @default(now()) @db.Timestamptz(6)
+
+  municipio municipio          @relation(fields: [municipio_id], references: [id])
+  usuario   usuario            @relation(fields: [usuario_id], references: [id])
+  items     import_batch_item[]
+  logs      import_batch_log[]
+}
+
+model import_batch_item {
+  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  batch_id    String   @db.Uuid
+  table_name  String
+  record_id   String
+  created_at  DateTime @default(now()) @db.Timestamptz(6)
+
+  batch import_batch @relation(fields: [batch_id], references: [id])
+}
+
+model import_batch_log {
+  id              String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  batch_id        String   @db.Uuid
+  row_index       Int
+  status          String
+  message         String
+  escola_nome     String?
+  turma_nome      String?
+  ciclo_input     String?
+  professor_nome  String?
+  professor_email String?
+  created_at      DateTime @default(now()) @db.Timestamptz(6)
+
+  batch import_batch @relation(fields: [batch_id], references: [id])
 }

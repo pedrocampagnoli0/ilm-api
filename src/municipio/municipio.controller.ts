@@ -34,6 +34,12 @@ export class MunicipioController {
     return this.municipioService.listUfs();
   }
 
+  @Get('livros')
+  @ApiOperation({ summary: 'Listar livros ativos' })
+  listLivros() {
+    return this.municipioService.listLivros();
+  }
+
   @Get()
   @ApiOperation({ summary: 'Listar municípios (paginado, com filtros)' })
   findAll(

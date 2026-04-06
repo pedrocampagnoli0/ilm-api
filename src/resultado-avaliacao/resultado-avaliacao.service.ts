@@ -142,6 +142,35 @@ export class ResultadoAvaliacaoService {
   }
 
   /**
+   * Radar report — F2 students with nivel_leitura or nivel_escrita in (1,2).
+   * Wraps the complex PostgREST inner-join query.
+   */
+  async radar(avaliacaoIds: string[], cicloId: string) {
+    const data = await this.prisma.resultado_avaliacao.findMany({
+      where: {
+        avaliacao_id: { in: avaliacaoIds },
+        ciclo_id: cicloId,
+        ausente: false,
+        aluno: { is_transferido: false },
+        OR: [
+          { f2_nivel_leitura: { in: [1, 2] } },
+          { f2_nivel_escrita: { in: [1, 2] } },
+        ],
+      },
+      select: {
+        aluno_id: true,
+        turma_id: true,
+        f2_nivel_leitura: true,
+        f2_nivel_escrita: true,
+        aluno: { select: { id: true, nome: true, is_transferido: true } },
+        turma: { select: { id: true, nome: true, escola_id: true, professora_id: true, ciclo_id: true } },
+      },
+    });
+
+    return { data };
+  }
+
+  /**
    * Delete resultados for a student (only blank ones — respondido_em IS NULL).
    */
   async deleteBlankForAluno(alunoId: string) {

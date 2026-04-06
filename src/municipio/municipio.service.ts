@@ -210,7 +210,7 @@ export class MunicipioService {
 
     const livrosAtivos = await this.prisma.municipio_livros_ativos.findMany({
       where: { municipio_id: municipioId },
-      include: { livro: { select: { id: true, titulo: true } } },
+      include: { livro: { select: { id: true, titulo: true, flipbook_url: true, ciclo: { select: { id: true, nome: true } } } } },
     });
 
     return { data: livrosAtivos.map((la) => la.livro) };
@@ -260,5 +260,14 @@ export class MunicipioService {
   async listUfs() {
     const ufs = await this.prisma.uf.findMany({ orderBy: { nome: 'asc' } });
     return { data: ufs };
+  }
+
+  async listLivros() {
+    const livros = await this.prisma.livro.findMany({
+      where: { ativo: true },
+      select: { id: true, titulo: true, ciclo_id: true },
+      orderBy: { titulo: 'asc' },
+    });
+    return { data: livros };
   }
 }

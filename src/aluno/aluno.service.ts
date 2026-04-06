@@ -15,6 +15,7 @@ import type { ListAlunosQueryDto } from './dto/list-alunos-query.dto.js';
 import type { ImportAlunosDto } from './dto/import-alunos.dto.js';
 import { PaginatedResponseDto } from '../common/dto/paginated-response.dto.js';
 import { buildPrismaSelect } from '../common/utils/build-prisma-select.js';
+import { getCaslWhere } from '../common/utils/paginated-query.js';
 
 const ALUNO_INCLUDE = {
   turma: { select: { id: true, nome: true } },
@@ -31,7 +32,7 @@ export class AlunoService {
 
   async findAll(user: AuthenticatedUser, query: ListAlunosQueryDto) {
     const ability = this.abilityFactory.createForUser(user);
-    const caslWhere = accessibleBy(ability, 'read').aluno;
+    const caslWhere = getCaslWhere(user, ability, 'read', 'aluno');
 
     const filters: Prisma.alunoWhereInput[] = [caslWhere];
 
@@ -81,6 +82,11 @@ export class AlunoService {
       take: query.limit,
       ...(customSelect ? { select: customSelect } : { include: ALUNO_INCLUDE }),
     };
+
+    if (query.skip_count) {
+      const data = await this.prisma.aluno.findMany(findArgs);
+      return new PaginatedResponseDto(data, -1, query.page, query.limit);
+    }
 
     const [data, total] = await this.prisma.$transaction([
       this.prisma.aluno.findMany(findArgs),

@@ -15,6 +15,7 @@ import type { UpdateTurmaDto } from './dto/update-turma.dto.js';
 import type { ListTurmasQueryDto } from './dto/list-turmas-query.dto.js';
 import { PaginatedResponseDto } from '../common/dto/paginated-response.dto.js';
 import { buildPrismaSelect } from '../common/utils/build-prisma-select.js';
+import { getCaslWhere } from '../common/utils/paginated-query.js';
 
 const TURMA_INCLUDE = {
   escola: { select: { id: true, nome: true, municipio_id: true, municipio: { select: { nome: true, uf_sigla: true } } } },
@@ -32,7 +33,7 @@ export class TurmaService {
 
   async findAll(user: AuthenticatedUser, query: ListTurmasQueryDto) {
     const ability = this.abilityFactory.createForUser(user);
-    const caslWhere = accessibleBy(ability, 'read').turma;
+    const caslWhere = getCaslWhere(user, ability, 'read', 'turma');
 
     const filters: Prisma.turmaWhereInput[] = [caslWhere];
 
@@ -92,6 +93,11 @@ export class TurmaService {
       take: query.limit,
       ...(customSelect ? { select: customSelect } : { include: TURMA_INCLUDE }),
     };
+
+    if (query.skip_count) {
+      const data = await this.prisma.turma.findMany(findArgs);
+      return new PaginatedResponseDto(data, -1, query.page, query.limit);
+    }
 
     const [data, total] = await this.prisma.$transaction([
       this.prisma.turma.findMany(findArgs),

@@ -15,6 +15,7 @@ import type { UpdateUsuarioDto } from './dto/update-usuario.dto.js';
 import type { ListUsuariosQueryDto } from './dto/list-usuarios-query.dto.js';
 import { PaginatedResponseDto } from '../common/dto/paginated-response.dto.js';
 import { buildPrismaSelect } from '../common/utils/build-prisma-select.js';
+import { getCaslWhere } from '../common/utils/paginated-query.js';
 
 const USUARIO_INCLUDE = {
   perfil: { select: { id: true, nome: true } },
@@ -30,7 +31,7 @@ export class UsuarioService {
 
   async findAll(user: AuthenticatedUser, query: ListUsuariosQueryDto) {
     const ability = this.abilityFactory.createForUser(user);
-    const caslWhere = accessibleBy(ability, 'read').usuario;
+    const caslWhere = getCaslWhere(user, ability, 'read', 'usuario');
 
     const filters: Prisma.usuarioWhereInput[] = [caslWhere];
 
@@ -73,6 +74,11 @@ export class UsuarioService {
       take: query.limit,
       ...(customSelect ? { select: customSelect } : { include: USUARIO_INCLUDE }),
     };
+
+    if (query.skip_count) {
+      const data = await this.prisma.usuario.findMany(findArgs);
+      return new PaginatedResponseDto(data, -1, query.page, query.limit);
+    }
 
     const [data, total] = await this.prisma.$transaction([
       this.prisma.usuario.findMany(findArgs),

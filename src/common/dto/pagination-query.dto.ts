@@ -1,4 +1,4 @@
-import { IsInt, IsOptional, IsString, Max, MaxLength, Min } from 'class-validator';
+import { IsBoolean, IsInt, IsOptional, IsString, Max, MaxLength, Min } from 'class-validator';
 import { Transform } from 'class-transformer';
 import { ApiPropertyOptional } from '@nestjs/swagger';
 
@@ -27,6 +27,14 @@ export class PaginationQueryDto {
   @IsString()
   @MaxLength(500)
   fields?: string;
+
+  @ApiPropertyOptional({
+    description: 'Skip the COUNT query (returns total=-1). Use when you already know the total from a previous request.',
+  })
+  @IsOptional()
+  @Transform(({ value }) => value === 'true' || value === true)
+  @IsBoolean()
+  skip_count?: boolean;
 
   /** Computed after validation — safe to use in services. */
   get skip(): number {

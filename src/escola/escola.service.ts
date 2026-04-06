@@ -15,6 +15,7 @@ import type { UpdateEscolaDto } from './dto/update-escola.dto.js';
 import type { ListEscolasQueryDto } from './dto/list-escolas-query.dto.js';
 import { PaginatedResponseDto } from '../common/dto/paginated-response.dto.js';
 import { buildPrismaSelect } from '../common/utils/build-prisma-select.js';
+import { getCaslWhere } from '../common/utils/paginated-query.js';
 
 const ESCOLA_INCLUDE = {
   municipio: { select: { id: true, nome: true, uf_sigla: true } },
@@ -32,7 +33,7 @@ export class EscolaService {
 
   async findAll(user: AuthenticatedUser, query: ListEscolasQueryDto) {
     const ability = this.abilityFactory.createForUser(user);
-    const caslWhere = accessibleBy(ability, 'read').escola;
+    const caslWhere = getCaslWhere(user, ability, 'read', 'escola');
 
     const filters: Prisma.escolaWhereInput[] = [caslWhere];
 
@@ -76,6 +77,11 @@ export class EscolaService {
       take: query.limit,
       ...(customSelect ? { select: customSelect } : { include: ESCOLA_INCLUDE }),
     };
+
+    if (query.skip_count) {
+      const data = await this.prisma.escola.findMany(findArgs);
+      return new PaginatedResponseDto(data, -1, query.page, query.limit);
+    }
 
     const [data, total] = await this.prisma.$transaction([
       this.prisma.escola.findMany(findArgs),

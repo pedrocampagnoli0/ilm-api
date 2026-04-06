@@ -259,7 +259,16 @@ function defineAlunoRules(
 
 @Injectable()
 export class AbilityFactory {
+  private cache = new Map<string, { ability: AppAbility; expiresAt: number }>();
+
   createForUser(user: AuthenticatedUser): AppAbility {
+    // Cache key: user id + perfil (perfil determines all rules)
+    const cacheKey = `${user.id}:${user.perfil}:${user.escolaIds.join(',')}:${user.turmaIds.join(',')}`;
+    const cached = this.cache.get(cacheKey);
+    if (cached && cached.expiresAt > Date.now()) {
+      return cached.ability;
+    }
+
     const { can, cannot, build } = new AbilityBuilder<AppAbility>(
       createPrismaAbility,
     );
@@ -270,6 +279,19 @@ export class AbilityFactory {
     defineUsuarioRules(can, cannot, user);
     defineAlunoRules(can, cannot, user);
 
-    return build();
+    const ability = build();
+
+    // Cache for 30 seconds (matches JWT strategy cache TTL)
+    this.cache.set(cacheKey, { ability, expiresAt: Date.now() + 30_000 });
+
+    // Evict stale entries periodically
+    if (this.cache.size > 100) {
+      const now = Date.now();
+      for (const [key, entry] of this.cache) {
+        if (entry.expiresAt <= now) this.cache.delete(key);
+      }
+    }
+
+    return ability;
   }
 }

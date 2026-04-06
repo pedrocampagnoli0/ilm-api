@@ -14,6 +14,7 @@ import type { CreateEscolaDto } from './dto/create-escola.dto.js';
 import type { UpdateEscolaDto } from './dto/update-escola.dto.js';
 import type { ListEscolasQueryDto } from './dto/list-escolas-query.dto.js';
 import { PaginatedResponseDto } from '../common/dto/paginated-response.dto.js';
+import { buildPrismaSelect } from '../common/utils/build-prisma-select.js';
 
 const ESCOLA_INCLUDE = {
   municipio: { select: { id: true, nome: true, uf_sigla: true } },
@@ -64,14 +65,20 @@ export class EscolaService {
 
     const where: Prisma.escolaWhereInput = { AND: filters };
 
+    const customSelect = query.fields
+      ? buildPrismaSelect(query.fields)
+      : null;
+
+    const findArgs: Prisma.escolaFindManyArgs = {
+      where,
+      orderBy: { nome: 'asc' },
+      skip: query.skip,
+      take: query.limit,
+      ...(customSelect ? { select: customSelect } : { include: ESCOLA_INCLUDE }),
+    };
+
     const [data, total] = await this.prisma.$transaction([
-      this.prisma.escola.findMany({
-        where,
-        include: ESCOLA_INCLUDE,
-        orderBy: { nome: 'asc' },
-        skip: query.skip,
-        take: query.limit,
-      }),
+      this.prisma.escola.findMany(findArgs),
       this.prisma.escola.count({ where }),
     ]);
 

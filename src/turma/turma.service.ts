@@ -14,6 +14,7 @@ import type { CreateTurmaDto } from './dto/create-turma.dto.js';
 import type { UpdateTurmaDto } from './dto/update-turma.dto.js';
 import type { ListTurmasQueryDto } from './dto/list-turmas-query.dto.js';
 import { PaginatedResponseDto } from '../common/dto/paginated-response.dto.js';
+import { buildPrismaSelect } from '../common/utils/build-prisma-select.js';
 
 const TURMA_INCLUDE = {
   escola: { select: { id: true, nome: true, municipio_id: true, municipio: { select: { nome: true, uf_sigla: true } } } },
@@ -79,14 +80,21 @@ export class TurmaService {
 
     const where: Prisma.turmaWhereInput = { AND: filters };
 
+    // When `fields` is provided, use a targeted select instead of the full include
+    const customSelect = query.fields
+      ? buildPrismaSelect(query.fields)
+      : null;
+
+    const findArgs: Prisma.turmaFindManyArgs = {
+      where,
+      orderBy: { nome: 'asc' },
+      skip: query.skip,
+      take: query.limit,
+      ...(customSelect ? { select: customSelect } : { include: TURMA_INCLUDE }),
+    };
+
     const [data, total] = await this.prisma.$transaction([
-      this.prisma.turma.findMany({
-        where,
-        include: TURMA_INCLUDE,
-        orderBy: { nome: 'asc' },
-        skip: query.skip,
-        take: query.limit,
-      }),
+      this.prisma.turma.findMany(findArgs),
       this.prisma.turma.count({ where }),
     ]);
 

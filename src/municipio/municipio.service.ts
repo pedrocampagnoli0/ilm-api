@@ -15,6 +15,7 @@ import type { UpdateMunicipioDto } from './dto/update-municipio.dto.js';
 import type { ListMunicipiosQueryDto } from './dto/list-municipios-query.dto.js';
 import type { UpdateLivrosAtivosDto } from './dto/update-livros-ativos.dto.js';
 import { PaginatedResponseDto } from '../common/dto/paginated-response.dto.js';
+import { buildPrismaSelect } from '../common/utils/build-prisma-select.js';
 
 @Injectable()
 export class MunicipioService {
@@ -49,13 +50,20 @@ export class MunicipioService {
 
     const where: Prisma.municipioWhereInput = { AND: filters };
 
+    const customSelect = query.fields
+      ? buildPrismaSelect(query.fields)
+      : null;
+
+    const findArgs: Prisma.municipioFindManyArgs = {
+      where,
+      orderBy: { nome: 'asc' },
+      skip: query.skip,
+      take: query.limit,
+      ...(customSelect ? { select: customSelect } : {}),
+    };
+
     const [data, total] = await this.prisma.$transaction([
-      this.prisma.municipio.findMany({
-        where,
-        orderBy: { nome: 'asc' },
-        skip: query.skip,
-        take: query.limit,
-      }),
+      this.prisma.municipio.findMany(findArgs),
       this.prisma.municipio.count({ where }),
     ]);
 

@@ -1,4 +1,4 @@
-import { IsInt, IsOptional, Max, Min } from 'class-validator';
+import { IsInt, IsOptional, IsString, Max, MaxLength, Min } from 'class-validator';
 import { Transform } from 'class-transformer';
 import { ApiPropertyOptional } from '@nestjs/swagger';
 
@@ -17,6 +17,16 @@ export class PaginationQueryDto {
   @Min(1)
   @Max(1000)
   limit: number = 20;
+
+  @ApiPropertyOptional({
+    description:
+      'Comma-separated fields to return (dot notation for relations). ' +
+      'Example: "id,nome,ciclo.id,ciclo.nome". When omitted, default includes are used.',
+  })
+  @IsOptional()
+  @IsString()
+  @MaxLength(500)
+  fields?: string;
 
   /** Computed after validation — safe to use in services. */
   get skip(): number {

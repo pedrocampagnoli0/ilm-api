@@ -46,6 +46,7 @@ model municipio {
   uf            uf     @relation(fields: [uf_sigla], references: [sigla])
   escolas       escola[]
   usuarios      usuario[]
+  alunos        aluno[]
   livros_ativos municipio_livros_ativos[]
 }
 
@@ -89,6 +90,7 @@ model escola {
   diretor    usuario?  @relation("escola_diretor", fields: [diretor_id], references: [id])
 
   turmas turma[]
+  alunos aluno[]
 
   @@index([municipio_id])
 }
@@ -118,7 +120,29 @@ model turma {
   professora usuario @relation("turma_professora", fields: [professora_id], references: [id])
   auxiliar   usuario? @relation("turma_auxiliar", fields: [auxiliar_id], references: [id])
 
+  alunos aluno[]
+
   @@index([escola_id, ciclo_id, ativo])
+}
+
+model aluno {
+  id              String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  nome            String
+  turma_id        String    @db.Uuid
+  escola_id       String?   @db.Uuid
+  municipio_id    String    @db.Uuid
+  is_inclusao     Boolean   @default(false)
+  is_transferido  Boolean   @default(false)
+  transferido_em  DateTime? @db.Timestamptz(6)
+  created_at      DateTime  @default(now()) @db.Timestamptz(6)
+  updated_at      DateTime  @default(now()) @updatedAt @db.Timestamptz(6)
+
+  turma     turma     @relation(fields: [turma_id], references: [id])
+  escola    escola?   @relation(fields: [escola_id], references: [id])
+  municipio municipio @relation(fields: [municipio_id], references: [id])
+
+  @@index([turma_id])
+  @@index([is_transferido], map: "idx_aluno_is_transferido")
 }
 
 model uf {

@@ -11,6 +11,7 @@ import { MunicipioModule } from './municipio/municipio.module.js';
 import { TurmaModule } from './turma/turma.module.js';
 import { CicloModule } from './ciclo/ciclo.module.js';
 import { UsuarioModule } from './usuario/usuario.module.js';
+import { AlunoModule } from './aluno/aluno.module.js';
 
 @Module({
   imports: [
@@ -40,6 +41,7 @@ import { UsuarioModule } from './usuario/usuario.module.js';
     TurmaModule,
     CicloModule,
     UsuarioModule,
+    AlunoModule,
   ],
   providers: [
     { provide: APP_GUARD, useClass: ThrottlerGuard },

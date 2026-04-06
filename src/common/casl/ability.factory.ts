@@ -5,6 +5,7 @@ import {
   type Subjects,
 } from '@casl/prisma';
 import type {
+  aluno as Aluno,
   escola as Escola,
   municipio as Municipio,
   turma as Turma,
@@ -15,6 +16,7 @@ import type { AuthenticatedUser } from '../auth/interfaces/authenticated-user.in
 
 type AppSubjects =
   | Subjects<{
+      aluno: Aluno;
       escola: Escola;
       municipio: Municipio;
       turma: Turma;
@@ -204,7 +206,54 @@ function defineUsuarioRules(
   }
 }
 
-// Future: defineAlunoRules, defineAvaliacaoRules, etc.
+function defineAlunoRules(
+  can: Can,
+  cannot: Cannot,
+  user: AuthenticatedUser,
+) {
+  switch (user.perfil) {
+    case 'administrador':
+    case 'ilm':
+      can('manage', 'aluno');
+      break;
+
+    case 'secretaria':
+      if (user.escolaIds.length > 0) {
+        can('manage', 'aluno', { escola_id: { in: user.escolaIds } });
+      }
+      break;
+
+    case 'diretor':
+      if (user.escolaIds.length > 0) {
+        can('read', 'aluno', { escola_id: { in: user.escolaIds } });
+        can('create', 'aluno', { escola_id: { in: user.escolaIds } });
+        can('update', 'aluno', { escola_id: { in: user.escolaIds } });
+        can('delete', 'aluno', { escola_id: { in: user.escolaIds } });
+      }
+      break;
+
+    case 'coordenacao':
+      if (user.escolaIds.length > 0) {
+        can('read', 'aluno', { escola_id: { in: user.escolaIds } });
+      }
+      break;
+
+    case 'professor':
+      if (user.turmaIds.length > 0) {
+        can('read', 'aluno', { turma_id: { in: user.turmaIds } });
+        can('create', 'aluno', { turma_id: { in: user.turmaIds } });
+        can('update', 'aluno', { turma_id: { in: user.turmaIds } });
+        can('delete', 'aluno', { turma_id: { in: user.turmaIds } });
+      }
+      break;
+
+    default:
+      cannot('manage', 'aluno');
+      break;
+  }
+}
+
+// Future: defineAvaliacaoRules, defineResultadoRules, etc.
 
 // ─── Factory ────────────────────────────────────────────
 
@@ -219,6 +268,7 @@ export class AbilityFactory {
     defineMunicipioRules(can, cannot, user);
     defineTurmaRules(can, cannot, user);
     defineUsuarioRules(can, cannot, user);
+    defineAlunoRules(can, cannot, user);
 
     return build();
   }

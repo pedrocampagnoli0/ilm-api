@@ -1,6 +1,7 @@
 import {
   ForbiddenException,
   Injectable,
+  InternalServerErrorException,
   NotFoundException,
 } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
@@ -110,22 +111,27 @@ export class ResultadoAvaliacaoService {
     }
 
     // Call the existing DB function — preserves all trigger logic
-    // Use named parameters to match the function signature
+    // Set auth.uid() so the function can log who made the change
     try {
-      const result = await this.prisma.$queryRawUnsafe(
-        `SELECT upsert_resultados_avaliacao_batch(
-          in_avaliacao_id := $1::uuid,
-          in_turma_id := $2::uuid,
-          in_resultados := $3::jsonb
-        )`,
+      const resultadosJson = JSON.stringify(dto.resultados);
+
+      // Set the JWT claims so auth.uid() works inside the function
+      await this.prisma.$executeRawUnsafe(
+        `SELECT set_config('request.jwt.claims', '{"sub":"${user.authUserId}"}', true)`,
+      );
+
+      const result = await this.prisma.$queryRawUnsafe<Array<Record<string, unknown>>>(
+        `SELECT * FROM upsert_resultados_avaliacao_batch($1::uuid, $2::uuid, $3::jsonb)`,
         dto.avaliacao_id,
         dto.turma_id,
-        JSON.stringify(dto.resultados),
+        resultadosJson,
       );
-      return { data: result };
+
+      return { data: result?.[0] ?? result };
     } catch (error: unknown) {
-      const msg = error instanceof Error ? error.message : 'Unknown error';
-      throw new Error(`upsert_resultados_avaliacao_batch failed: ${msg}`);
+      const msg = error instanceof Error ? error.message : String(error);
+      console.error('upsert_resultados_avaliacao_batch error:', msg);
+      throw new InternalServerErrorException(`Erro ao salvar resultados: ${msg}`);
     }
   }
 

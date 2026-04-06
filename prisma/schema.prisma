@@ -47,6 +47,7 @@ model municipio {
   escolas       escola[]
   usuarios      usuario[]
   alunos        aluno[]
+  avaliacoes    avaliacao[]
   livros_ativos municipio_livros_ativos[]
 }
 
@@ -101,7 +102,8 @@ model ciclo {
   created_at DateTime @default(now()) @db.Timestamptz(6)
   updated_at DateTime @default(now()) @updatedAt @db.Timestamptz(6)
 
-  turmas turma[]
+  turmas     turma[]
+  resultados resultado_avaliacao[]
 }
 
 model turma {
@@ -120,7 +122,8 @@ model turma {
   professora usuario @relation("turma_professora", fields: [professora_id], references: [id])
   auxiliar   usuario? @relation("turma_auxiliar", fields: [auxiliar_id], references: [id])
 
-  alunos aluno[]
+  alunos     aluno[]
+  resultados resultado_avaliacao[]
 
   @@index([escola_id, ciclo_id, ativo])
 }
@@ -137,12 +140,86 @@ model aluno {
   created_at      DateTime  @default(now()) @db.Timestamptz(6)
   updated_at      DateTime  @default(now()) @updatedAt @db.Timestamptz(6)
 
-  turma     turma     @relation(fields: [turma_id], references: [id])
-  escola    escola?   @relation(fields: [escola_id], references: [id])
-  municipio municipio @relation(fields: [municipio_id], references: [id])
+  turma      turma     @relation(fields: [turma_id], references: [id])
+  escola     escola?   @relation(fields: [escola_id], references: [id])
+  municipio  municipio @relation(fields: [municipio_id], references: [id])
+  resultados resultado_avaliacao[]
 
   @@index([turma_id])
   @@index([is_transferido], map: "idx_aluno_is_transferido")
+}
+
+model tipo_avaliacao {
+  id         String      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  nome       String
+  created_at DateTime    @default(now()) @db.Timestamptz(6)
+  updated_at DateTime    @default(now()) @updatedAt @db.Timestamptz(6)
+
+  avaliacoes avaliacao[]
+}
+
+model avaliacao {
+  id            String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  municipio_id  String    @db.Uuid
+  tipo_id       String    @db.Uuid
+  data_inicio   DateTime? @db.Date
+  data_termino  DateTime? @db.Date
+  ativo         Boolean   @default(true)
+  created_at    DateTime  @default(now()) @db.Timestamptz(6)
+  updated_at    DateTime  @default(now()) @updatedAt @db.Timestamptz(6)
+
+  municipio       municipio         @relation(fields: [municipio_id], references: [id])
+  tipo_avaliacao  tipo_avaliacao    @relation(fields: [tipo_id], references: [id])
+  resultados      resultado_avaliacao[]
+
+  @@index([municipio_id])
+}
+
+model resultado_avaliacao {
+  id           String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  aluno_id     String    @db.Uuid
+  avaliacao_id String    @db.Uuid
+  turma_id     String    @db.Uuid
+  ciclo_id     String    @db.Uuid
+  ausente      Boolean   @default(false)
+  respondido_em DateTime? @db.Timestamptz(6)
+  created_at   DateTime  @default(now()) @db.Timestamptz(6)
+  updated_at   DateTime  @default(now()) @updatedAt @db.Timestamptz(6)
+
+  // EI2 (Educação Infantil 2) fields
+  ei2_escreve_nome          Boolean? @db.Boolean
+  ei2_sons_letras           Int?     @db.SmallInt
+  ei2_nomes_letras          Int?     @db.SmallInt
+  ei2_consciencia_fonemica  Int?     @db.SmallInt
+  ei2_consciencia_fonologica Int?    @db.SmallInt
+  ei2_nivel_leitura         Int?     @db.SmallInt
+  ei2_nivel_escrita         Int?     @db.SmallInt
+
+  // F1 (Fundamental 1) fields
+  f1_escreve_nome           Boolean? @db.Boolean
+  f1_consciencia_fonemica   Int?     @db.SmallInt
+  f1_consciencia_fonologica Int?     @db.SmallInt
+  f1_nivel_leitura          Int?     @db.SmallInt
+  f1_nivel_escrita          Int?     @db.SmallInt
+  f1_compreensao_frases     Int?     @db.SmallInt
+
+  // F2 (Fundamental 2) fields
+  f2_nivel_leitura          Int?     @db.SmallInt
+  f2_nivel_escrita          Int?     @db.SmallInt
+  f2_compreensao_frases     Int?     @db.SmallInt
+  f2_compreensao_texto      Int?     @db.SmallInt
+  f2_consciencia_fonemica   Int?     @db.SmallInt
+
+  aluno     aluno     @relation(fields: [aluno_id], references: [id])
+  avaliacao avaliacao @relation(fields: [avaliacao_id], references: [id])
+  turma     turma     @relation(fields: [turma_id], references: [id])
+  ciclo     ciclo     @relation(fields: [ciclo_id], references: [id])
+
+  @@unique([avaliacao_id, aluno_id], map: "uq_resultado_avaliacao_aluno")
+  @@index([avaliacao_id, turma_id], map: "idx_resultado_avaliacao_avaliacao_turma")
+  @@index([avaliacao_id], map: "idx_resultado_avaliacao_avaliacao_id")
+  @@index([turma_id], map: "idx_resultado_avaliacao_turma_id")
+  @@index([aluno_id], map: "idx_resultado_avaliacao_aluno_id")
 }
 
 model uf {

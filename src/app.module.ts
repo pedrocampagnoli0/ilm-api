@@ -12,6 +12,8 @@ import { TurmaModule } from './turma/turma.module.js';
 import { CicloModule } from './ciclo/ciclo.module.js';
 import { UsuarioModule } from './usuario/usuario.module.js';
 import { AlunoModule } from './aluno/aluno.module.js';
+import { AvaliacaoModule } from './avaliacao/avaliacao.module.js';
+import { ResultadoAvaliacaoModule } from './resultado-avaliacao/resultado-avaliacao.module.js';
 
 @Module({
   imports: [
@@ -42,6 +44,8 @@ import { AlunoModule } from './aluno/aluno.module.js';
     CicloModule,
     UsuarioModule,
     AlunoModule,
+    AvaliacaoModule,
+    ResultadoAvaliacaoModule,
   ],
   providers: [
     { provide: APP_GUARD, useClass: ThrottlerGuard },

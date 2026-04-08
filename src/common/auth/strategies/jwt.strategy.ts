@@ -23,7 +23,8 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     configService: ConfigService,
     private readonly prisma: PrismaService,
   ) {
-    const secret = configService.getOrThrow<string>('SUPABASE_JWT_SECRET');
+    const secretB64 = configService.getOrThrow<string>('SUPABASE_JWT_SECRET');
+    const secret = Buffer.from(secretB64, 'base64');
 
     const supabaseUrl = configService.getOrThrow<string>('SUPABASE_URL');
 

@@ -1,0 +1,254 @@
+{
+  "timestamp": "2026-04-04T20:15:23.846Z",
+  "runs_per_endpoint": 5,
+  "platforms": {
+    "fly": {
+      "url": "https://ilm-api-prod.fly.dev",
+      "region": "gru (Sao Paulo)",
+      "plan": "shared-cpu-1x, 512MB"
+    },
+    "render": {
+      "url": "https://ilm-api-prod.onrender.com",
+      "region": "Ohio (US East)",
+      "plan": "Starter ($7/mo)"
+    },
+    "supabase": {
+      "url": "https://gghgkgmgxsqkqkabtnch.supabase.co",
+      "region": "sa-east-1 (Sao Paulo)",
+      "type": "PostgREST + RLS"
+    }
+  },
+  "parity": {
+    "turmas": {
+      "api": 1229,
+      "match": false
+    },
+    "escolas": {
+      "api": 281,
+      "supabase": 281,
+      "match": true
+    },
+    "municipios": {
+      "api": 38,
+      "supabase": 38,
+      "match": true
+    },
+    "ciclos": {
+      "api": 4,
+      "supabase": 4,
+      "match": true
+    }
+  },
+  "results": [
+    {
+      "label": "Turma list (20)",
+      "fly": {
+        "avg": 1110,
+        "p50": 1098,
+        "min": 1094,
+        "max": 1140
+      },
+      "render": {
+        "avg": 1605,
+        "p50": 1522,
+        "min": 1281,
+        "max": 2062
+      },
+      "supabase": {
+        "avg": 8073,
+        "p50": 8062,
+        "min": 8056,
+        "max": 8125
+      }
+    },
+    {
+      "label": "Turma by escola",
+      "fly": {
+        "avg": 1314,
+        "p50": 1054,
+        "min": 1051,
+        "max": 2356
+      },
+      "render": {
+        "avg": 1720,
+        "p50": 1385,
+        "min": 1368,
+        "max": 2850
+      },
+      "supabase": {
+        "avg": 260,
+        "p50": 238,
+        "min": 235,
+        "max": 349
+      }
+    },
+    {
+      "label": "Turma by ciclo",
+      "fly": {
+        "avg": 1224,
+        "p50": 1094,
+        "min": 1086,
+        "max": 1760
+      },
+      "render": {
+        "avg": 1464,
+        "p50": 1386,
+        "min": 1367,
+        "max": 1672
+      },
+      "supabase": {
+        "avg": 8063,
+        "p50": 8056,
+        "min": 8051,
+        "max": 8091
+      }
+    },
+    {
+      "label": "Escola list (20)",
+      "fly": {
+        "avg": 129,
+        "p50": 79,
+        "min": 79,
+        "max": 326
+      },
+      "render": {
+        "avg": 1504,
+        "p50": 1192,
+        "min": 1184,
+        "max": 2532
+      },
+      "supabase": {
+        "avg": 136,
+        "p50": 113,
+        "min": 111,
+        "max": 222
+      }
+    },
+    {
+      "label": "Escola by municipio",
+      "fly": {
+        "avg": 92,
+        "p50": 77,
+        "min": 70,
+        "max": 157
+      },
+      "render": {
+        "avg": 1185,
+        "p50": 1183,
+        "min": 1180,
+        "max": 1195
+      },
+      "supabase": {
+        "avg": 68,
+        "p50": 58,
+        "min": 56,
+        "max": 112
+      }
+    },
+    {
+      "label": "Municipio list",
+      "fly": {
+        "avg": 77,
+        "p50": 63,
+        "min": 59,
+        "max": 136
+      },
+      "render": {
+        "avg": 698,
+        "p50": 676,
+        "min": 670,
+        "max": 798
+      },
+      "supabase": {
+        "avg": 63,
+        "p50": 63,
+        "min": 59,
+        "max": 66
+      }
+    },
+    {
+      "label": "Single municipio",
+      "fly": {
+        "avg": 60,
+        "p50": 44,
+        "min": 43,
+        "max": 123
+      },
+      "render": {
+        "avg": 312,
+        "p50": 287,
+        "min": 285,
+        "max": 404
+      },
+      "supabase": {
+        "avg": 57,
+        "p50": 55,
+        "min": 53,
+        "max": 66
+      }
+    },
+    {
+      "label": "Ciclo list",
+      "fly": {
+        "avg": 42,
+        "p50": 42,
+        "min": 39,
+        "max": 47
+      },
+      "render": {
+        "avg": 286,
+        "p50": 286,
+        "min": 282,
+        "max": 291
+      },
+      "supabase": {
+        "avg": 59,
+        "p50": 57,
+        "min": 55,
+        "max": 68
+      }
+    },
+    {
+      "label": "Livros ativos",
+      "fly": {
+        "avg": 52,
+        "p50": 52,
+        "min": 50,
+        "max": 54
+      },
+      "render": {
+        "avg": 543,
+        "p50": 543,
+        "min": 540,
+        "max": 548
+      },
+      "supabase": {
+        "avg": 57,
+        "p50": 56,
+        "min": 55,
+        "max": 60
+      }
+    },
+    {
+      "label": "Health check",
+      "fly": {
+        "avg": 53,
+        "p50": 41,
+        "min": 40,
+        "max": 104
+      },
+      "render": {
+        "avg": 285,
+        "p50": 286,
+        "min": 281,
+        "max": 288
+      },
+      "supabase": {
+        "avg": 88,
+        "p50": 82,
+        "min": 80,
+        "max": 100
+      }
+    }
+  ]
+}

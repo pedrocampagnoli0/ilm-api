@@ -43,12 +43,12 @@ export class ListTurmasQueryDto extends PaginationQueryDto {
   @ApiPropertyOptional({ description: 'Comma-separated escola IDs' })
   @IsOptional()
   @IsString()
-  @MaxLength(2000)
+  @MaxLength(5000)
   escola_ids?: string;
 
   @ApiPropertyOptional({ description: 'Comma-separated turma IDs' })
   @IsOptional()
   @IsString()
-  @MaxLength(2000)
+  @MaxLength(5000)
   ids?: string;
 }

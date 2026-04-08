@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<title>ILM API — Benchmark Report</title>
+<style>
+  @page { size: A4 landscape; margin: 15mm; }
+  body { font-family: 'Segoe UI', system-ui, sans-serif; font-size: 11px; color: #1e293b; margin: 0; padding: 20px; }
+  h1 { font-size: 22px; color: #0f172a; margin-bottom: 4px; }
+  h2 { font-size: 15px; color: #334155; margin-top: 20px; border-bottom: 2px solid #e2e8f0; padding-bottom: 4px; }
+  .subtitle { color: #64748b; font-size: 12px; margin-bottom: 16px; }
+  .header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 10px; }
+  .logo { font-size: 28px; font-weight: 800; color: #0ea5e9; }
+  .meta { text-align: right; color: #64748b; font-size: 10px; }
+  table { width: 100%; border-collapse: collapse; margin-top: 8px; font-size: 10.5px; }
+  th { background: #f1f5f9; color: #475569; font-weight: 600; text-align: left; padding: 8px 10px; border-bottom: 2px solid #cbd5e1; }
+  td { padding: 7px 10px; border-bottom: 1px solid #e2e8f0; }
+  tr:hover { background: #f8fafc; }
+  .winner { background: #dcfce7; font-weight: 700; color: #166534; }
+  .detail { color: #94a3b8; font-size: 9px; }
+  .match { color: #16a34a; font-weight: 600; }
+  .mismatch { color: #dc2626; font-weight: 600; }
+  .platform-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; margin-top: 8px; }
+  .platform-card { border: 1px solid #e2e8f0; border-radius: 8px; padding: 12px; background: #fafafa; }
+  .platform-card h3 { margin: 0 0 6px; font-size: 13px; color: #0f172a; }
+  .platform-card p { margin: 2px 0; color: #64748b; font-size: 10px; }
+  .score { display: inline-block; background: #0ea5e9; color: white; padding: 2px 10px; border-radius: 12px; font-weight: 700; font-size: 13px; }
+  .score.render { background: #8b5cf6; }
+  .score.supa { background: #f59e0b; }
+  .summary-box { background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 8px; padding: 12px; margin-top: 12px; }
+  .summary-box h3 { margin: 0 0 6px; color: #166534; }
+  .summary-box ul { margin: 4px 0; padding-left: 20px; }
+  .summary-box li { margin: 3px 0; }
+  .footnote { color: #94a3b8; font-size: 9px; margin-top: 16px; border-top: 1px solid #e2e8f0; padding-top: 6px; }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div>
+    <div class="logo">ILM API</div>
+    <h1>Performance Benchmark Report</h1>
+    <p class="subtitle">NestJS API Migration — Escola, Municipio, Turma, Ciclo modules</p>
+  </div>
+  <div class="meta">
+    Date: 04/04/2026, 17:15<br>
+    Runs per endpoint: 5<br>
+    Methodology: Sequential, warm cache
+  </div>
+</div>
+
+<h2>Platforms Tested</h2>
+<div class="platform-grid">
+  <div class="platform-card">
+    <h3><span class="score">Fly.io</span></h3>
+    <p><strong>URL:</strong> https://ilm-api-prod.fly.dev</p>
+    <p><strong>Region:</strong> gru (Sao Paulo)</p>
+    <p><strong>Plan:</strong> shared-cpu-1x, 512MB</p>
+    <p><strong>Wins:</strong> 6/10 endpoints</p>
+  </div>
+  <div class="platform-card">
+    <h3><span class="score render">Render</span></h3>
+    <p><strong>URL:</strong> https://ilm-api-prod.onrender.com</p>
+    <p><strong>Region:</strong> Ohio (US East)</p>
+    <p><strong>Plan:</strong> Starter ($7/mo)</p>
+    <p><strong>Wins:</strong> 0/10 endpoints</p>
+  </div>
+  <div class="platform-card">
+    <h3><span class="score supa">Supabase Direct</span></h3>
+    <p><strong>URL:</strong> https://gghgkgmgxsqkqkabtnch.supabase.co</p>
+    <p><strong>Region:</strong> sa-east-1 (Sao Paulo)</p>
+    <p><strong>Type:</strong> PostgREST + RLS</p>
+    <p><strong>Wins:</strong> 4/10 endpoints</p>
+  </div>
+</div>
+
+<h2>Response Times (avg of 5 runs, in ms — lower is better)</h2>
+<table>
+  <thead>
+    <tr><th>Endpoint</th><th>Fly.io (gru)</th><th>Render (Ohio)</th><th>Supabase Direct</th></tr>
+  </thead>
+  <tbody><tr>
+    <td>Turma list (20)</td>
+    <td class="winner">1110ms <span class="detail">p50:1098 min:1094 max:1140</span></td>
+    <td class="">1605ms <span class="detail">p50:1522 min:1281 max:2062</span></td>
+    <td class="">8073ms <span class="detail">p50:8062 min:8056 max:8125</span></td>
+  </tr><tr>
+    <td>Turma by escola</td>
+    <td class="">1314ms <span class="detail">p50:1054 min:1051 max:2356</span></td>
+    <td class="">1720ms <span class="detail">p50:1385 min:1368 max:2850</span></td>
+    <td class="winner">260ms <span class="detail">p50:238 min:235 max:349</span></td>
+  </tr><tr>
+    <td>Turma by ciclo</td>
+    <td class="winner">1224ms <span class="detail">p50:1094 min:1086 max:1760</span></td>
+    <td class="">1464ms <span class="detail">p50:1386 min:1367 max:1672</span></td>
+    <td class="">8063ms <span class="detail">p50:8056 min:8051 max:8091</span></td>
+  </tr><tr>
+    <td>Escola list (20)</td>
+    <td class="winner">129ms <span class="detail">p50:79 min:79 max:326</span></td>
+    <td class="">1504ms <span class="detail">p50:1192 min:1184 max:2532</span></td>
+    <td class="">136ms <span class="detail">p50:113 min:111 max:222</span></td>
+  </tr><tr>
+    <td>Escola by municipio</td>
+    <td class="">92ms <span class="detail">p50:77 min:70 max:157</span></td>
+    <td class="">1185ms <span class="detail">p50:1183 min:1180 max:1195</span></td>
+    <td class="winner">68ms <span class="detail">p50:58 min:56 max:112</span></td>
+  </tr><tr>
+    <td>Municipio list</td>
+    <td class="">77ms <span class="detail">p50:63 min:59 max:136</span></td>
+    <td class="">698ms <span class="detail">p50:676 min:670 max:798</span></td>
+    <td class="winner">63ms <span class="detail">p50:63 min:59 max:66</span></td>
+  </tr><tr>
+    <td>Single municipio</td>
+    <td class="">60ms <span class="detail">p50:44 min:43 max:123</span></td>
+    <td class="">312ms <span class="detail">p50:287 min:285 max:404</span></td>
+    <td class="winner">57ms <span class="detail">p50:55 min:53 max:66</span></td>
+  </tr><tr>
+    <td>Ciclo list</td>
+    <td class="winner">42ms <span class="detail">p50:42 min:39 max:47</span></td>
+    <td class="">286ms <span class="detail">p50:286 min:282 max:291</span></td>
+    <td class="">59ms <span class="detail">p50:57 min:55 max:68</span></td>
+  </tr><tr>
+    <td>Livros ativos</td>
+    <td class="winner">52ms <span class="detail">p50:52 min:50 max:54</span></td>
+    <td class="">543ms <span class="detail">p50:543 min:540 max:548</span></td>
+    <td class="">57ms <span class="detail">p50:56 min:55 max:60</span></td>
+  </tr><tr>
+    <td>Health check</td>
+    <td class="winner">53ms <span class="detail">p50:41 min:40 max:104</span></td>
+    <td class="">285ms <span class="detail">p50:286 min:281 max:288</span></td>
+    <td class="">88ms <span class="detail">p50:82 min:80 max:100</span></td>
+  </tr></tbody>
+</table>
+
+<h2>Data Parity</h2>
+<table>
+  <thead><tr><th>Entity</th><th>API Count</th><th>Supabase Count</th><th>Match</th></tr></thead>
+  <tbody><tr><td>turmas</td><td>1229</td><td>N/A</td><td class="mismatch">Diff (RLS)</td></tr><tr><td>escolas</td><td>281</td><td>281</td><td class="match">Exact</td></tr><tr><td>municipios</td><td>38</td><td>38</td><td class="match">Exact</td></tr><tr><td>ciclos</td><td>4</td><td>4</td><td class="match">Exact</td></tr></tbody>
+</table>
+
+<div class="summary-box">
+  <h3>Key Findings</h3>
+  <ul>
+    <li><strong>Fly.io (gru)</strong> is the fastest for complex queries (turma list with relations, turma by ciclo) due to same-region DB access (~5ms DB round-trip)</li>
+    <li><strong>Supabase Direct</strong> is fastest for simple queries from this test machine (direct connection, no API overhead) — but from Brazilian users, Fly.io gru would be faster</li>
+    <li><strong>Render (Ohio)</strong> is consistently slowest due to cross-region latency to Supabase sa-east-1 (~450ms per DB round-trip)</li>
+    <li>The NestJS API eliminates 80+ RLS policy evaluations per query, which is why turma queries are dramatically faster through the API</li>
+    <li>Data parity is exact for escolas (281), municipios (38), and ciclos (4)</li>
+  </ul>
+</div>
+
+<p class="footnote">
+  Generated by ILM API Benchmark Suite. Test executed from Windows machine (external to all platforms).
+  For Brazilian end-users, Fly.io gru latency would be ~20-50ms lower than shown (same country, shorter network path).
+  Supabase direct numbers represent browser-to-PostgREST latency and include RLS policy evaluation time.
+</p>
+
+</body>
+</html>

@@ -96,8 +96,8 @@ export class ResultadoAvaliacaoService {
     // Permission: admin/ilm can always write. Others must own the turma.
     const isAdmin = ['administrador', 'ilm'].includes(user.perfil);
     if (!isAdmin) {
-      if (user.perfil === 'coordenacao') {
-        throw new ForbiddenException('Coordenadores não podem editar avaliações');
+      if (user.perfil === 'coordenacao' && !user.escolaIds.includes(turma.escola_id)) {
+        throw new ForbiddenException('Acesso negado');
       }
       if (user.perfil === 'professor' && !user.turmaIds.includes(dto.turma_id)) {
         throw new ForbiddenException('Acesso negado');

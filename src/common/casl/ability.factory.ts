@@ -138,9 +138,10 @@ function defineTurmaRules(
       break;
 
     case 'coordenacao':
-      // Coordenador can read turmas in their coordinated escolas
+      // Coordenador can read/update turmas in their coordinated escolas
       if (user.escolaIds.length > 0) {
         can('read', 'turma', { escola_id: { in: user.escolaIds } });
+        can('update', 'turma', { escola_id: { in: user.escolaIds } });
       }
       break;
 
@@ -235,6 +236,9 @@ function defineAlunoRules(
     case 'coordenacao':
       if (user.escolaIds.length > 0) {
         can('read', 'aluno', { escola_id: { in: user.escolaIds } });
+        can('create', 'aluno', { escola_id: { in: user.escolaIds } });
+        can('update', 'aluno', { escola_id: { in: user.escolaIds } });
+        can('delete', 'aluno', { escola_id: { in: user.escolaIds } });
       }
       break;
 

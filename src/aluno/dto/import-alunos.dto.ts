@@ -30,9 +30,5 @@ export class ImportAlunosDto {
 
   @ApiProperty()
   @IsUUID()
-  escola_id!: string;
-
-  @ApiProperty()
-  @IsUUID()
   turma_id!: string;
 }

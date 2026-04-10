@@ -28,6 +28,11 @@ const mockResultado = {
 };
 
 function createMockPrisma() {
+  // Shared spy so tests can assert on $queryRawUnsafe calls whether they
+  // happen on the Prisma client or inside a $transaction(tx => ...) callback.
+  const queryRawUnsafe = jest.fn().mockResolvedValue([
+    { upsert_resultados_avaliacao_batch: { saved_count: 1 } },
+  ]);
   return {
     resultado_avaliacao: {
       findMany: jest.fn().mockResolvedValue([mockResultado]),
@@ -37,8 +42,17 @@ function createMockPrisma() {
     turma: {
       findUnique: jest.fn().mockResolvedValue({ id: 'turma-uuid', escola_id: 'esc' }),
     },
-    $transaction: jest.fn().mockImplementation((args: unknown[]) => Promise.all(args)),
-    $queryRawUnsafe: jest.fn().mockResolvedValue([{ upsert_resultados_avaliacao_batch: null }]),
+    $queryRawUnsafe: queryRawUnsafe,
+    $transaction: jest.fn().mockImplementation((argOrCallback: unknown) => {
+      if (typeof argOrCallback === 'function') {
+        const tx = {
+          $executeRawUnsafe: jest.fn().mockResolvedValue(1),
+          $queryRawUnsafe: queryRawUnsafe,
+        };
+        return (argOrCallback as (tx: unknown) => Promise<unknown>)(tx);
+      }
+      return Promise.all(argOrCallback as unknown[]);
+    }),
   };
 }
 

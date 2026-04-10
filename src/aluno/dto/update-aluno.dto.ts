@@ -1,6 +1,10 @@
-import { IsBoolean, IsOptional, IsString, IsUUID, MaxLength, MinLength } from 'class-validator';
+import { IsBoolean, IsOptional, IsString, MaxLength, MinLength } from 'class-validator';
 import { ApiPropertyOptional } from '@nestjs/swagger';
 
+/**
+ * Alunos cannot change turma/escola/municipio — only their metadata
+ * (nome, is_inclusao, is_transferido) can be updated.
+ */
 export class UpdateAlunoDto {
   @ApiPropertyOptional({ example: 'João Silva' })
   @IsOptional()
@@ -8,21 +12,6 @@ export class UpdateAlunoDto {
   @MinLength(2)
   @MaxLength(200)
   nome?: string;
-
-  @ApiPropertyOptional({ example: 'uuid' })
-  @IsOptional()
-  @IsUUID()
-  turma_id?: string;
-
-  @ApiPropertyOptional({ example: 'uuid' })
-  @IsOptional()
-  @IsUUID()
-  escola_id?: string | null;
-
-  @ApiPropertyOptional({ example: 'uuid' })
-  @IsOptional()
-  @IsUUID()
-  municipio_id?: string;
 
   @ApiPropertyOptional()
   @IsOptional()

@@ -147,7 +147,7 @@ model aluno {
   id              String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   nome            String
   turma_id        String    @db.Uuid
-  escola_id       String?   @db.Uuid
+  escola_id       String    @db.Uuid
   municipio_id    String    @db.Uuid
   is_inclusao     Boolean   @default(false)
   is_transferido  Boolean   @default(false)
@@ -156,7 +156,7 @@ model aluno {
   updated_at      DateTime  @default(now()) @updatedAt @db.Timestamptz(6)
 
   turma      turma     @relation(fields: [turma_id], references: [id])
-  escola     escola?   @relation(fields: [escola_id], references: [id])
+  escola     escola    @relation(fields: [escola_id], references: [id])
   municipio  municipio @relation(fields: [municipio_id], references: [id])
   resultados resultado_avaliacao[]
 

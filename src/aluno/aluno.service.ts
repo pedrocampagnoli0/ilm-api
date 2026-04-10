@@ -160,7 +160,8 @@ export class AlunoService {
       data: {
         nome,
         turma_id: dto.turma_id,
-        escola_id: dto.escola_id ?? turma.escola_id,
+        // escola_id is ALWAYS derived from the turma to keep them in sync
+        escola_id: turma.escola_id,
         municipio_id: dto.municipio_id,
         is_inclusao: dto.is_inclusao ?? false,
       },
@@ -185,9 +186,6 @@ export class AlunoService {
     const data: Prisma.alunoUncheckedUpdateInput = {};
 
     if (dto.nome) data.nome = dto.nome.trim().replace(/\s+/g, ' ');
-    if (dto.turma_id) data.turma_id = dto.turma_id;
-    if ('escola_id' in dto) data.escola_id = dto.escola_id ?? null;
-    if (dto.municipio_id) data.municipio_id = dto.municipio_id;
     if (dto.is_inclusao !== undefined) data.is_inclusao = dto.is_inclusao;
     if (dto.is_transferido !== undefined) {
       data.is_transferido = dto.is_transferido;
@@ -293,7 +291,8 @@ export class AlunoService {
       toInsert.push({
         nome,
         turma_id: dto.turma_id,
-        escola_id: dto.escola_id,
+        // escola_id is ALWAYS derived from the turma
+        escola_id: turma.escola_id,
         municipio_id: dto.municipio_id,
         is_inclusao: row.inclusao ?? false,
       });

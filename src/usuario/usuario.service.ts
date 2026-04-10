@@ -69,7 +69,7 @@ export class UsuarioService {
 
     const findArgs: Prisma.usuarioFindManyArgs = {
       where,
-      orderBy: { nome: 'asc' },
+      orderBy: [{ nome: 'asc' }, { id: 'asc' }],
       skip: query.skip,
       take: query.limit,
       ...(customSelect ? { select: customSelect } : { include: USUARIO_INCLUDE }),

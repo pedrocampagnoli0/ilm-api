@@ -77,7 +77,7 @@ export class AlunoService {
 
     const findArgs: Prisma.alunoFindManyArgs = {
       where,
-      orderBy: { nome: 'asc' },
+      orderBy: [{ nome: 'asc' }, { id: 'asc' }],
       skip: query.skip,
       take: query.limit,
       ...(customSelect ? { select: customSelect } : { include: ALUNO_INCLUDE }),

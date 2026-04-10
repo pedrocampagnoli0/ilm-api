@@ -72,7 +72,7 @@ export class EscolaService {
 
     const findArgs: Prisma.escolaFindManyArgs = {
       where,
-      orderBy: { nome: 'asc' },
+      orderBy: [{ nome: 'asc' }, { id: 'asc' }],
       skip: query.skip,
       take: query.limit,
       ...(customSelect ? { select: customSelect } : { include: ESCOLA_INCLUDE }),

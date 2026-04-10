@@ -88,7 +88,7 @@ export class TurmaService {
 
     const findArgs: Prisma.turmaFindManyArgs = {
       where,
-      orderBy: { nome: 'asc' },
+      orderBy: [{ nome: 'asc' }, { id: 'asc' }],
       skip: query.skip,
       take: query.limit,
       ...(customSelect ? { select: customSelect } : { include: TURMA_INCLUDE }),

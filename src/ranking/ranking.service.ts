@@ -36,7 +36,7 @@ export class RankingService {
 
     const findArgs: Prisma.ranking_professor_diarioFindManyArgs = {
       where,
-      orderBy: { pontuacao_total_avg: 'desc' },
+      orderBy: [{ pontuacao_total_avg: 'desc' }, { id: 'asc' }],
       skip: query.skip,
       take: query.limit,
       ...(customSelect ? { select: customSelect } : { include: RANKING_PROF_INCLUDE }),
@@ -65,7 +65,7 @@ export class RankingService {
 
     const findArgs: Prisma.ranking_escola_diarioFindManyArgs = {
       where,
-      orderBy: { pontuacao_total_avg: 'desc' },
+      orderBy: [{ pontuacao_total_avg: 'desc' }, { id: 'asc' }],
       skip: query.skip,
       take: query.limit,
       ...(customSelect ? { select: customSelect } : { include: RANKING_ESCOLA_INCLUDE }),
@@ -95,7 +95,7 @@ export class RankingService {
   async getLastUpdates() {
     const data = await this.prisma.ranking_professor_diario.findMany({
       select: { municipio_id: true, updated_at: true },
-      orderBy: { updated_at: 'desc' },
+      orderBy: [{ updated_at: 'desc' }, { id: 'asc' }],
     });
 
     const updates: Record<string, string> = {};

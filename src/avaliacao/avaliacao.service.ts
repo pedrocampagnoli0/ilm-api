@@ -54,7 +54,7 @@ export class AvaliacaoService {
 
     const findArgs: Prisma.avaliacaoFindManyArgs = {
       where,
-      orderBy: { data_inicio: 'desc' },
+      orderBy: [{ data_inicio: 'desc' }, { id: 'asc' }],
       skip: query.skip,
       take: query.limit,
       ...(customSelect ? { select: customSelect } : { include: AVALIACAO_INCLUDE }),

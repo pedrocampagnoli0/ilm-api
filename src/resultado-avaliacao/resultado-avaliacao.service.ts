@@ -64,7 +64,7 @@ export class ResultadoAvaliacaoService {
 
     const findArgs: Prisma.resultado_avaliacaoFindManyArgs = {
       where,
-      orderBy: { created_at: 'asc' },
+      orderBy: [{ created_at: 'asc' }, { id: 'asc' }],
       skip: query.skip,
       take: query.limit,
       ...(customSelect ? { select: customSelect } : { include: RESULTADO_INCLUDE }),

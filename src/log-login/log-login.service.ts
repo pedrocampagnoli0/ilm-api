@@ -53,7 +53,7 @@ export class LogLoginService {
     const [data, total] = await this.prisma.$transaction([
       this.prisma.log_tentativa_login.findMany({
         where,
-        orderBy: { criado_em: 'desc' },
+        orderBy: [{ criado_em: 'desc' }, { id: 'asc' }],
         skip: query.skip,
         take: query.limit,
       }),

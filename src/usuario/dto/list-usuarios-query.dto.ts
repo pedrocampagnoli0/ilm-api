@@ -39,6 +39,6 @@ export class ListUsuariosQueryDto extends PaginationQueryDto {
   @ApiPropertyOptional({ description: 'Comma-separated usuario IDs' })
   @IsOptional()
   @IsString()
-  @MaxLength(5000)
+  @MaxLength(8000)
   ids?: string;
 }

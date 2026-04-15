@@ -43,6 +43,6 @@ export class ListEscolasQueryDto extends PaginationQueryDto {
   @ApiPropertyOptional({ description: 'Filter by multiple IDs (comma-separated UUIDs)' })
   @IsOptional()
   @IsString()
-  @MaxLength(5000)
+  @MaxLength(8000)
   ids?: string;
 }

@@ -28,7 +28,7 @@ export class ImportBulkService {
       this.prisma.import_batch.findMany({
         where,
         include: BATCH_INCLUDE,
-        orderBy: { created_at: 'desc' },
+        orderBy: [{ created_at: 'desc' }, { id: 'asc' }],
         skip: query.skip,
         take: query.limit,
       }),

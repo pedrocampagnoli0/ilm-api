@@ -47,7 +47,7 @@ export class ImportBulkService {
   }
 
   /**
-   * Execute bulk import — wraps the `escola_turma_import` DB function.
+   * Execute bulk import — wraps the `escola_turma_import(rows jsonb, in_municipio uuid)` DB function.
    */
   async execute(user: AuthenticatedUser, data: {
     municipio_id: string;
@@ -57,27 +57,47 @@ export class ImportBulkService {
       throw new ForbiddenException('Acesso negado');
     }
 
-    const result = await this.prisma.$queryRawUnsafe(
-      `SELECT escola_turma_import($1::uuid, $2::jsonb)`,
-      data.municipio_id,
-      JSON.stringify(data.rows),
-    );
+    const rowsJson = JSON.stringify(data.rows);
+
+    const result = await this.prisma.$transaction(async (tx) => {
+      await tx.$executeRawUnsafe(
+        `SELECT set_config('request.jwt.claims', $1::text, true)`,
+        JSON.stringify({ sub: user.authUserId }),
+      );
+
+      const rows = await tx.$queryRawUnsafe<Array<{ escola_turma_import: unknown }>>(
+        `SELECT escola_turma_import($1::jsonb, $2::uuid) AS escola_turma_import`,
+        rowsJson,
+        data.municipio_id,
+      );
+
+      return rows?.[0]?.escola_turma_import ?? null;
+    });
 
     return { data: result };
   }
 
   /**
-   * Undo bulk import — wraps the `escola_turma_import_undo` DB function.
+   * Undo bulk import — wraps the `escola_turma_import_undo(in_batch_id uuid)` DB function.
    */
   async undo(user: AuthenticatedUser, batchId: string) {
     if (!['administrador', 'ilm'].includes(user.perfil)) {
       throw new ForbiddenException('Acesso negado');
     }
 
-    const result = await this.prisma.$queryRawUnsafe(
-      `SELECT escola_turma_import_undo($1::uuid)`,
-      batchId,
-    );
+    const result = await this.prisma.$transaction(async (tx) => {
+      await tx.$executeRawUnsafe(
+        `SELECT set_config('request.jwt.claims', $1::text, true)`,
+        JSON.stringify({ sub: user.authUserId }),
+      );
+
+      const rows = await tx.$queryRawUnsafe<Array<{ escola_turma_import_undo: unknown }>>(
+        `SELECT escola_turma_import_undo($1::uuid) AS escola_turma_import_undo`,
+        batchId,
+      );
+
+      return rows?.[0]?.escola_turma_import_undo ?? null;
+    });
 
     return { data: result };
   }

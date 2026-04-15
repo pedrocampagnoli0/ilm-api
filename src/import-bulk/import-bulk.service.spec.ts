@@ -14,6 +14,15 @@ function makeProf(): AuthenticatedUser {
 const mockBatch = { id: 'b1', municipio_id: 'm1', status: 'concluido', total_rows: 10 };
 
 function createMockPrisma() {
+  const queryRawUnsafe = jest.fn().mockImplementation((sql: string) => {
+    if (sql.includes('escola_turma_import_undo')) {
+      return Promise.resolve([{ escola_turma_import_undo: { batch_id: 'b1', undone: true } }]);
+    }
+    if (sql.includes('escola_turma_import')) {
+      return Promise.resolve([{ escola_turma_import: { batch_id: 'b1', escolas_criadas: 1 } }]);
+    }
+    return Promise.resolve([]);
+  });
   return {
     import_batch: {
       findMany: jest.fn().mockResolvedValue([mockBatch]),
@@ -22,8 +31,18 @@ function createMockPrisma() {
     import_batch_log: {
       findMany: jest.fn().mockResolvedValue([{ id: 'l1', row_index: 0, status: 'ok', message: 'imported' }]),
     },
-    $transaction: jest.fn().mockImplementation((args: unknown[]) => Promise.all(args)),
-    $queryRawUnsafe: jest.fn().mockResolvedValue([{ escola_turma_import: 'b1' }]),
+    $executeRawUnsafe: jest.fn().mockResolvedValue(1),
+    $queryRawUnsafe: queryRawUnsafe,
+    $transaction: jest.fn().mockImplementation((argOrCallback: unknown) => {
+      if (typeof argOrCallback === 'function') {
+        const tx = {
+          $executeRawUnsafe: jest.fn().mockResolvedValue(1),
+          $queryRawUnsafe: queryRawUnsafe,
+        };
+        return (argOrCallback as (tx: unknown) => Promise<unknown>)(tx);
+      }
+      return Promise.all(argOrCallback as unknown[]);
+    }),
   };
 }
 
@@ -55,8 +74,14 @@ describe('ImportBulkService', () => {
 
   it('should execute import for admin', async () => {
     const result = await service.execute(makeAdmin(), { municipio_id: 'm1', rows: [{ escola: 'E1' }] });
-    expect(prisma.$queryRawUnsafe).toHaveBeenCalledWith(expect.stringContaining('escola_turma_import'), 'm1', expect.any(String));
-    expect(result.data).toBeDefined();
+    // rows (jsonb) first, municipio_id (uuid) second — matches DB function signature
+    expect(prisma.$queryRawUnsafe).toHaveBeenCalledWith(
+      expect.stringContaining('escola_turma_import('),
+      expect.any(String),
+      'm1',
+    );
+    // Result is the unwrapped jsonb returned by the function, not the row array
+    expect(result.data).toEqual({ batch_id: 'b1', escolas_criadas: 1 });
   });
 
   it('should deny execute for professor', async () => {
@@ -66,7 +91,7 @@ describe('ImportBulkService', () => {
   it('should undo import for admin', async () => {
     const result = await service.undo(makeAdmin(), 'b1');
     expect(prisma.$queryRawUnsafe).toHaveBeenCalledWith(expect.stringContaining('escola_turma_import_undo'), 'b1');
-    expect(result.data).toBeDefined();
+    expect(result.data).toEqual({ batch_id: 'b1', undone: true });
   });
 
   it('should deny undo for professor', async () => {

@@ -403,4 +403,23 @@ export class AlunoService {
 
     return { data: result };
   }
+
+  async deleteImportBatch(user: AuthenticatedUser, batchId: string) {
+    if (!['administrador', 'ilm'].includes(user.perfil)) {
+      throw new ForbiddenException('Acesso negado');
+    }
+
+    const batch = await this.prisma.import_aluno_batch.findUnique({ where: { id: batchId } });
+    if (!batch) {
+      throw new NotFoundException('Batch não encontrado');
+    }
+    if (batch.status !== 'undone') {
+      throw new ForbiddenException('Apenas importações desfeitas podem ser excluídas');
+    }
+
+    // Items cascade-delete via FK
+    await this.prisma.import_aluno_batch.delete({ where: { id: batchId } });
+
+    return { data: { id: batchId } };
+  }
 }

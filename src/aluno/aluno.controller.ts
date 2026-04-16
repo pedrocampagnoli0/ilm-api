@@ -82,6 +82,15 @@ export class AlunoController {
     return this.alunoService.undoImportBatch(user, id);
   }
 
+  @Delete('import-batches/:id')
+  @ApiOperation({ summary: 'Excluir registro de importação (apenas status=undone)' })
+  deleteImportBatch(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('id', ParseUUIDPipe) id: string,
+  ) {
+    return this.alunoService.deleteImportBatch(user, id);
+  }
+
   // ─── Single-entity routes ────────────────────────────────
 
   @Get(':id')

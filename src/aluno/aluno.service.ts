@@ -298,8 +298,24 @@ export class AlunoService {
       });
     }
 
+    let createdIds: string[] = [];
     if (toInsert.length > 0) {
-      await this.prisma.aluno.createMany({ data: toInsert });
+      const created = await this.prisma.aluno.createManyAndReturn({
+        data: toInsert,
+        select: { id: true },
+      });
+      createdIds = created.map((a) => a.id);
+
+      // If batch tracking is enabled, record each created aluno
+      if (dto.batch_id && createdIds.length > 0) {
+        await this.prisma.import_aluno_batch_item.createMany({
+          data: createdIds.map((alunoId) => ({
+            batch_id: dto.batch_id!,
+            aluno_id: alunoId,
+            turma_id: dto.turma_id,
+          })),
+        });
+      }
     }
 
     return {
@@ -308,5 +324,83 @@ export class AlunoService {
         total_ignorados: totalIgnorados,
       },
     };
+  }
+
+  // ─── Import Batch Management ─────────────────────────────
+
+  async createImportBatch(user: AuthenticatedUser, municipioId: string) {
+    if (!['administrador', 'ilm'].includes(user.perfil)) {
+      throw new ForbiddenException('Acesso negado');
+    }
+
+    const batch = await this.prisma.import_aluno_batch.create({
+      data: {
+        municipio_id: municipioId,
+        usuario_id: user.id,
+      },
+    });
+
+    return { data: batch };
+  }
+
+  async finalizeImportBatch(
+    user: AuthenticatedUser,
+    batchId: string,
+    counts: { total_turmas: number; alunos_importados: number; alunos_ignorados: number; erros: number },
+  ) {
+    if (!['administrador', 'ilm'].includes(user.perfil)) {
+      throw new ForbiddenException('Acesso negado');
+    }
+
+    const batch = await this.prisma.import_aluno_batch.update({
+      where: { id: batchId },
+      data: {
+        ...counts,
+        status: 'completed',
+      },
+    });
+
+    return { data: batch };
+  }
+
+  async listImportBatches(user: AuthenticatedUser) {
+    if (!['administrador', 'ilm'].includes(user.perfil)) {
+      throw new ForbiddenException('Acesso negado');
+    }
+
+    const data = await this.prisma.import_aluno_batch.findMany({
+      include: {
+        municipio: { select: { id: true, nome: true } },
+        usuario: { select: { id: true, nome: true } },
+      },
+      orderBy: [{ created_at: 'desc' }, { id: 'asc' }],
+      take: 20,
+    });
+
+    return { data };
+  }
+
+  async undoImportBatch(user: AuthenticatedUser, batchId: string) {
+    if (!['administrador', 'ilm'].includes(user.perfil)) {
+      throw new ForbiddenException('Acesso negado');
+    }
+
+    const result = await this.prisma.$transaction(async (tx) => {
+      await tx.$executeRawUnsafe(
+        `SELECT set_config('request.jwt.claims', $1::text, true)`,
+        JSON.stringify({ sub: user.authUserId }),
+      );
+
+      const rows = await tx.$queryRawUnsafe<
+        Array<{ undo_import_aluno_batch: { alunos_deleted: number; alunos_skipped: number } }>
+      >(
+        `SELECT undo_import_aluno_batch($1::uuid) AS undo_import_aluno_batch`,
+        batchId,
+      );
+
+      return rows?.[0]?.undo_import_aluno_batch ?? { alunos_deleted: 0, alunos_skipped: 0 };
+    });
+
+    return { data: result };
   }
 }

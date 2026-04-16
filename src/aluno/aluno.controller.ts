@@ -73,6 +73,40 @@ export class AlunoController {
     return this.alunoService.import(user, dto);
   }
 
+  @Get('import-batches')
+  @ApiOperation({ summary: 'Listar batches de importação de alunos' })
+  listImportBatches(@CurrentUser() user: AuthenticatedUser) {
+    return this.alunoService.listImportBatches(user);
+  }
+
+  @Post('import-batches')
+  @ApiOperation({ summary: 'Criar batch de importação de alunos' })
+  createImportBatch(
+    @CurrentUser() user: AuthenticatedUser,
+    @Body() body: { municipio_id: string },
+  ) {
+    return this.alunoService.createImportBatch(user, body.municipio_id);
+  }
+
+  @Patch('import-batches/:id')
+  @ApiOperation({ summary: 'Finalizar batch de importação' })
+  finalizeImportBatch(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() body: { total_turmas: number; alunos_importados: number; alunos_ignorados: number; erros: number },
+  ) {
+    return this.alunoService.finalizeImportBatch(user, id, body);
+  }
+
+  @Post('import-batches/:id/undo')
+  @ApiOperation({ summary: 'Desfazer importação de alunos' })
+  undoImportBatch(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('id', ParseUUIDPipe) id: string,
+  ) {
+    return this.alunoService.undoImportBatch(user, id);
+  }
+
   @Post('bulk-delete')
   @ApiOperation({ summary: 'Excluir múltiplos alunos' })
   bulkDelete(

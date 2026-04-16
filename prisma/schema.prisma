@@ -54,9 +54,10 @@ model municipio {
   alunos              aluno[]
   avaliacoes          avaliacao[]
   livros_ativos       municipio_livros_ativos[]
-  import_batches      import_batch[]
-  ranking_professores ranking_professor_diario[] @relation("ranking_prof_municipio")
-  ranking_escolas     ranking_escola_diario[]    @relation("ranking_escola_municipio")
+  import_batches       import_batch[]
+  import_aluno_batches import_aluno_batch[]
+  ranking_professores  ranking_professor_diario[] @relation("ranking_prof_municipio")
+  ranking_escolas      ranking_escola_diario[]    @relation("ranking_escola_municipio")
 }
 
 model usuario {
@@ -82,6 +83,7 @@ model usuario {
   turmas_as_auxiliar    turma[]  @relation("turma_auxiliar")
   rankings              ranking_professor_diario[]
   import_batches        import_batch[]
+  import_aluno_batches  import_aluno_batch[]
 }
 
 model escola {
@@ -137,8 +139,9 @@ model turma {
   professora usuario @relation("turma_professora", fields: [professora_id], references: [id])
   auxiliar   usuario? @relation("turma_auxiliar", fields: [auxiliar_id], references: [id])
 
-  alunos     aluno[]
-  resultados resultado_avaliacao[]
+  alunos             aluno[]
+  resultados         resultado_avaliacao[]
+  import_batch_items import_aluno_batch_item[]
 
   @@index([escola_id, ciclo_id, ativo])
 }
@@ -159,6 +162,7 @@ model aluno {
   escola     escola    @relation(fields: [escola_id], references: [id])
   municipio  municipio @relation(fields: [municipio_id], references: [id])
   resultados resultado_avaliacao[]
+  import_batch_items import_aluno_batch_item[]
 
   @@index([turma_id])
   @@index([is_transferido], map: "idx_aluno_is_transferido")
@@ -384,4 +388,41 @@ model import_batch_log {
   created_at      DateTime @default(now()) @db.Timestamptz(6)
 
   batch import_batch @relation(fields: [batch_id], references: [id])
+}
+
+// ─── Aluno Bulk Import Tracking ───────────────────────────
+
+model import_aluno_batch {
+  id                String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  municipio_id      String    @db.Uuid
+  usuario_id        String    @db.Uuid
+  total_turmas      Int       @default(0)
+  alunos_importados Int       @default(0)
+  alunos_ignorados  Int       @default(0)
+  erros             Int       @default(0)
+  status            String    @default("pending")
+  undone_at         DateTime? @db.Timestamptz(6)
+  created_at        DateTime  @default(now()) @db.Timestamptz(6)
+
+  municipio municipio                @relation(fields: [municipio_id], references: [id])
+  usuario   usuario                  @relation(fields: [usuario_id], references: [id])
+  items     import_aluno_batch_item[]
+
+  @@index([municipio_id])
+  @@index([created_at(sort: Desc)])
+}
+
+model import_aluno_batch_item {
+  id         String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  batch_id   String   @db.Uuid
+  aluno_id   String   @db.Uuid
+  turma_id   String   @db.Uuid
+  created_at DateTime @default(now()) @db.Timestamptz(6)
+
+  batch import_aluno_batch @relation(fields: [batch_id], references: [id], onDelete: Cascade)
+  aluno aluno              @relation(fields: [aluno_id], references: [id], onDelete: Cascade)
+  turma turma              @relation(fields: [turma_id], references: [id])
+
+  @@index([batch_id])
+  @@index([aluno_id])
 }

@@ -43,6 +43,7 @@ function createMockPrisma() {
       findFirst: jest.fn().mockResolvedValue(null),
       create: jest.fn().mockResolvedValue(mockAlunoWithIncludes),
       createMany: jest.fn().mockResolvedValue({ count: 5 }),
+      createManyAndReturn: jest.fn().mockResolvedValue([{ id: 'new-aluno-1' }, { id: 'new-aluno-2' }]),
       update: jest.fn().mockResolvedValue(mockAlunoWithIncludes),
       delete: jest.fn().mockResolvedValue(mockAluno),
       deleteMany: jest.fn().mockResolvedValue({ count: 2 }),

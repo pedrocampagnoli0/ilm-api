@@ -31,4 +31,9 @@ export class ImportAlunosDto {
   @ApiProperty()
   @IsUUID()
   turma_id!: string;
+
+  @ApiPropertyOptional({ description: 'Batch ID for bulk import tracking' })
+  @IsOptional()
+  @IsUUID()
+  batch_id?: string;
 }

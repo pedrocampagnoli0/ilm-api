@@ -40,6 +40,12 @@ export class ListResultadosQueryDto extends PaginationQueryDto {
   @MaxLength(8000)
   avaliacao_ids?: string;
 
+  @ApiPropertyOptional({ description: 'Comma-separated turma IDs' })
+  @IsOptional()
+  @IsString()
+  @MaxLength(8000)
+  turma_ids?: string;
+
   @ApiPropertyOptional({ description: 'Comma-separated aluno IDs' })
   @IsOptional()
   @IsString()

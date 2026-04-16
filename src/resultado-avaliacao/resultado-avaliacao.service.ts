@@ -49,6 +49,12 @@ export class ResultadoAvaliacaoService {
         filters.push({ avaliacao_id: { in: idList } });
       }
     }
+    if (query.turma_ids) {
+      const idList = query.turma_ids.split(',').map((s) => s.trim()).filter(Boolean);
+      if (idList.length > 0) {
+        filters.push({ turma_id: { in: idList } });
+      }
+    }
     if (query.aluno_ids) {
       const idList = query.aluno_ids.split(',').map((s) => s.trim()).filter(Boolean);
       if (idList.length > 0) {

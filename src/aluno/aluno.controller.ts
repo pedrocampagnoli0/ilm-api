@@ -46,32 +46,7 @@ export class AlunoController {
     return this.alunoService.count(user, query);
   }
 
-  @Get(':id')
-  @ApiOperation({ summary: 'Buscar aluno por ID' })
-  findOne(
-    @CurrentUser() user: AuthenticatedUser,
-    @Param('id', ParseUUIDPipe) id: string,
-  ) {
-    return this.alunoService.findOne(user, id);
-  }
-
-  @Post()
-  @ApiOperation({ summary: 'Criar aluno' })
-  create(
-    @CurrentUser() user: AuthenticatedUser,
-    @Body() dto: CreateAlunoDto,
-  ) {
-    return this.alunoService.create(user, dto);
-  }
-
-  @Post('import')
-  @ApiOperation({ summary: 'Importar alunos em lote' })
-  import(
-    @CurrentUser() user: AuthenticatedUser,
-    @Body() dto: ImportAlunosDto,
-  ) {
-    return this.alunoService.import(user, dto);
-  }
+  // ─── Import batch routes MUST come before :id to avoid wildcard capture ───
 
   @Get('import-batches')
   @ApiOperation({ summary: 'Listar batches de importação de alunos' })
@@ -105,6 +80,35 @@ export class AlunoController {
     @Param('id', ParseUUIDPipe) id: string,
   ) {
     return this.alunoService.undoImportBatch(user, id);
+  }
+
+  // ─── Single-entity routes ────────────────────────────────
+
+  @Get(':id')
+  @ApiOperation({ summary: 'Buscar aluno por ID' })
+  findOne(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('id', ParseUUIDPipe) id: string,
+  ) {
+    return this.alunoService.findOne(user, id);
+  }
+
+  @Post()
+  @ApiOperation({ summary: 'Criar aluno' })
+  create(
+    @CurrentUser() user: AuthenticatedUser,
+    @Body() dto: CreateAlunoDto,
+  ) {
+    return this.alunoService.create(user, dto);
+  }
+
+  @Post('import')
+  @ApiOperation({ summary: 'Importar alunos em lote' })
+  import(
+    @CurrentUser() user: AuthenticatedUser,
+    @Body() dto: ImportAlunosDto,
+  ) {
+    return this.alunoService.import(user, dto);
   }
 
   @Post('bulk-delete')

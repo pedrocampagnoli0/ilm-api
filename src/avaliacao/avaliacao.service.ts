@@ -18,6 +18,16 @@ const AVALIACAO_INCLUDE = {
   tipo_avaliacao: { select: { id: true, nome: true } },
 } as const;
 
+function normalizeAvaliacaoDates<T extends Record<string, unknown>>(row: T): T {
+  if ('data_inicio' in row && row.data_inicio instanceof Date) {
+    (row as Record<string, unknown>).data_inicio = row.data_inicio.toISOString().slice(0, 10);
+  }
+  if ('data_termino' in row && row.data_termino instanceof Date) {
+    (row as Record<string, unknown>).data_termino = row.data_termino.toISOString().slice(0, 10);
+  }
+  return row;
+}
+
 @Injectable()
 export class AvaliacaoService {
   constructor(
@@ -65,7 +75,9 @@ export class AvaliacaoService {
       this.prisma.avaliacao.count({ where }),
     ]);
 
-    return new PaginatedResponseDto(data, total, query.page, query.limit);
+    const normalized = (data as Record<string, unknown>[]).map(normalizeAvaliacaoDates);
+
+    return new PaginatedResponseDto(normalized, total, query.page, query.limit);
   }
 
   async findOne(id: string) {
@@ -78,7 +90,7 @@ export class AvaliacaoService {
       throw new NotFoundException('Avaliação não encontrada');
     }
 
-    return { data: avaliacao };
+    return { data: normalizeAvaliacaoDates(avaliacao as Record<string, unknown>) };
   }
 
   async create(user: AuthenticatedUser, dto: CreateAvaliacaoDto) {
@@ -97,7 +109,7 @@ export class AvaliacaoService {
       include: AVALIACAO_INCLUDE,
     });
 
-    return { data: avaliacao };
+    return { data: normalizeAvaliacaoDates(avaliacao as Record<string, unknown>) };
   }
 
   async update(user: AuthenticatedUser, id: string, dto: UpdateAvaliacaoDto) {
@@ -123,7 +135,7 @@ export class AvaliacaoService {
       include: AVALIACAO_INCLUDE,
     });
 
-    return { data: updated };
+    return { data: normalizeAvaliacaoDates(updated as Record<string, unknown>) };
   }
 
   async delete(user: AuthenticatedUser, id: string) {

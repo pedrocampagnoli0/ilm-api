@@ -68,14 +68,33 @@ describe('AvaliacaoService', () => {
     expect(result.data).toHaveLength(1);
   });
 
-  it('should find one avaliacao', async () => {
-    const result = await service.findOne('av-uuid');
+  it('should find one avaliacao (admin)', async () => {
+    const result = await service.findOne(makeAdmin(), 'av-uuid');
     expect(result.data.id).toBe('av-uuid');
   });
 
   it('should throw NotFoundException', async () => {
     prisma.avaliacao.findUnique.mockResolvedValue(null);
-    await expect(service.findOne('missing')).rejects.toThrow(NotFoundException);
+    await expect(service.findOne(makeAdmin(), 'missing')).rejects.toThrow(NotFoundException);
+  });
+
+  it('should deny findOne when professor is in a different municipio (F-10)', async () => {
+    // mockAvaliacao.municipio.id === 'muni'; this professor has municipioId === 'other'
+    const professorOtherMuni: AuthenticatedUser = {
+      id: 'prof2-uuid', authUserId: 'auth-prof2', nome: 'Prof2', email: 'prof2@test.com',
+      perfil: 'professor', municipioId: 'other', escolaIds: [], turmaIds: [], ativo: true,
+    };
+    await expect(service.findOne(professorOtherMuni, 'av-uuid')).rejects.toThrow(ForbiddenException);
+  });
+
+  it('should deny findAll when professor supplies a different municipio_id (F-09)', async () => {
+    const professorOtherMuni: AuthenticatedUser = {
+      id: 'prof3-uuid', authUserId: 'auth-prof3', nome: 'Prof3', email: 'prof3@test.com',
+      perfil: 'professor', municipioId: 'mine', escolaIds: [], turmaIds: [], ativo: true,
+    };
+    await expect(
+      service.findAll(professorOtherMuni, { page: 1, limit: 20, skip: 0, municipio_id: 'other' } as any),
+    ).rejects.toThrow(ForbiddenException);
   });
 
   it('should create avaliacao for admin', async () => {

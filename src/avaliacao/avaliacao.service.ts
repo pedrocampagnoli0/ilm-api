@@ -4,6 +4,8 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
+import { accessibleBy } from '@casl/prisma';
+import { subject } from '@casl/ability';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { AbilityFactory } from '../common/casl/ability.factory.js';
 import type { AuthenticatedUser } from '../common/auth/interfaces/authenticated-user.interface.js';
@@ -36,9 +38,22 @@ export class AvaliacaoService {
   ) {}
 
   async findAll(user: AuthenticatedUser, query: ListAvaliacoesQueryDto) {
-    const filters: Prisma.avaliacaoWhereInput[] = [];
+    const ability = this.abilityFactory.createForUser(user);
+
+    // Scope avaliacoes to municipios the caller can read. AbilityFactory has
+    // no rules for 'avaliacao' yet, so use the municipio relation as proxy:
+    // an avaliacao belongs to a municipio, and the caller can read it iff
+    // they can read that municipio.
+    const municipioWhere = accessibleBy(ability, 'read').municipio;
+    const filters: Prisma.avaliacaoWhereInput[] = [{ municipio: municipioWhere }];
 
     if (query.municipio_id) {
+      // If the caller provided an explicit municipio_id, verify they can
+      // actually read that municipio; if not, reject outright so the
+      // response is 403 instead of a silent empty list.
+      if (!ability.can('read', subject('municipio', { id: query.municipio_id } as never))) {
+        throw new ForbiddenException('Acesso negado');
+      }
       filters.push({ municipio_id: query.municipio_id });
     }
     if (query.tipo_id) {
@@ -56,7 +71,7 @@ export class AvaliacaoService {
       });
     }
 
-    const where: Prisma.avaliacaoWhereInput = filters.length > 0 ? { AND: filters } : {};
+    const where: Prisma.avaliacaoWhereInput = { AND: filters };
 
     const customSelect = query.fields
       ? buildPrismaSelect(query.fields)
@@ -80,7 +95,9 @@ export class AvaliacaoService {
     return new PaginatedResponseDto(normalized, total, query.page, query.limit);
   }
 
-  async findOne(id: string) {
+  async findOne(user: AuthenticatedUser, id: string) {
+    const ability = this.abilityFactory.createForUser(user);
+
     const avaliacao = await this.prisma.avaliacao.findUnique({
       where: { id },
       include: AVALIACAO_INCLUDE,
@@ -88,6 +105,11 @@ export class AvaliacaoService {
 
     if (!avaliacao) {
       throw new NotFoundException('Avaliação não encontrada');
+    }
+
+    // An avaliacao is readable by the caller iff they can read its municipio.
+    if (!ability.can('read', subject('municipio', avaliacao.municipio as never))) {
+      throw new ForbiddenException('Acesso negado');
     }
 
     return { data: normalizeAvaliacaoDates(avaliacao as Record<string, unknown>) };

@@ -38,6 +38,21 @@ function makeProfessor(overrides: Partial<AuthenticatedUser> = {}): Authenticate
   };
 }
 
+function makeSecretaria(overrides: Partial<AuthenticatedUser> = {}): AuthenticatedUser {
+  return {
+    id: 'sec-uuid',
+    authUserId: 'auth-sec-uuid',
+    nome: 'Secretaria',
+    email: 'sec@test.com',
+    perfil: 'secretaria',
+    municipioId: 'muni-uuid',
+    escolaIds: [],
+    turmaIds: [],
+    ativo: true,
+    ...overrides,
+  };
+}
+
 const mockUsuario = {
   id: 'user-uuid',
   nome: 'Test User',
@@ -70,6 +85,10 @@ function createMockPrisma() {
       updateMany: jest.fn().mockResolvedValue({ count: 1 }),
       delete: jest.fn().mockResolvedValue(mockUsuario),
       count: jest.fn().mockResolvedValue(1),
+    },
+    perfil: {
+      // Default mock returns 'professor' perfil; individual tests override as needed.
+      findUnique: jest.fn().mockResolvedValue({ nome: 'professor' }),
     },
     $transaction: jest.fn().mockImplementation((args: unknown[]) =>
       Promise.all(args),
@@ -207,6 +226,71 @@ describe('UsuarioService', () => {
       await service.create(makeAdmin(), dto);
       const createCall = prisma.usuario.create.mock.calls[0][0];
       expect(createCall.data.email).toBe('test@email.com');
+    });
+
+    // F-12 regression tests
+    it('should allow secretaria to create a professor in their own municipio', async () => {
+      prisma.perfil.findUnique.mockResolvedValue({ nome: 'professor' });
+      const dto = {
+        nome: 'New Professor',
+        email: 'np@test.com',
+        perfil_id: 'perfil-prof-uuid',
+        municipio_id: 'muni-uuid', // same as secretaria.municipioId
+      };
+      const result = await service.create(makeSecretaria(), dto);
+      expect(result.data).toBeDefined();
+      expect(prisma.usuario.create).toHaveBeenCalled();
+    });
+
+    it('F-12: should deny secretaria creating a usuario with administrador perfil', async () => {
+      prisma.perfil.findUnique.mockResolvedValue({ nome: 'administrador' });
+      const dto = {
+        nome: 'Escalation',
+        email: 'esc@test.com',
+        perfil_id: 'perfil-admin-uuid',
+        municipio_id: 'muni-uuid', // same as secretaria.municipioId
+      };
+      await expect(service.create(makeSecretaria(), dto))
+        .rejects.toThrow(ForbiddenException);
+      expect(prisma.usuario.create).not.toHaveBeenCalled();
+    });
+
+    it('F-12: should deny secretaria creating a usuario with ilm perfil', async () => {
+      prisma.perfil.findUnique.mockResolvedValue({ nome: 'ilm' });
+      const dto = {
+        nome: 'Escalation ILM',
+        email: 'esc-ilm@test.com',
+        perfil_id: 'perfil-ilm-uuid',
+        municipio_id: 'muni-uuid',
+      };
+      await expect(service.create(makeSecretaria(), dto))
+        .rejects.toThrow(ForbiddenException);
+      expect(prisma.usuario.create).not.toHaveBeenCalled();
+    });
+
+    it('F-12: should deny secretaria creating a usuario in a different municipio', async () => {
+      const dto = {
+        nome: 'Cross Tenant',
+        email: 'xt@test.com',
+        perfil_id: 'perfil-prof-uuid',
+        municipio_id: 'other-muni-uuid', // different from secretaria.municipioId
+      };
+      await expect(service.create(makeSecretaria(), dto))
+        .rejects.toThrow(ForbiddenException);
+      expect(prisma.usuario.create).not.toHaveBeenCalled();
+    });
+
+    it('should still allow admin to create a usuario with administrador perfil', async () => {
+      // Admins bypass the perfil whitelist; the perfil lookup should not even run.
+      const dto = {
+        nome: 'New Admin',
+        email: 'na@test.com',
+        perfil_id: 'perfil-admin-uuid',
+        municipio_id: 'any-muni',
+      };
+      const result = await service.create(makeAdmin(), dto);
+      expect(result.data).toBeDefined();
+      expect(prisma.perfil.findUnique).not.toHaveBeenCalled();
     });
   });
 

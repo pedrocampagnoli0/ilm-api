@@ -123,8 +123,37 @@ export class UsuarioService {
   async create(user: AuthenticatedUser, dto: CreateUsuarioDto) {
     const ability = this.abilityFactory.createForUser(user);
 
-    if (!ability.can('create', 'usuario')) {
+    const isAdminCaller = user.perfil === 'administrador' || user.perfil === 'ilm';
+
+    // Resource-aware CASL check. ability.can('create', 'usuario') with no
+    // resource is optimistic: any conditional rule (e.g. secretaria's
+    // "create usuario in my municipio") makes it pass, which would let a
+    // secretaria escalate privilege by supplying perfil_id = <administrador>.
+    // Instead, check against the candidate object so CASL's { municipio_id }
+    // condition is evaluated.
+    const candidate = {
+      municipio_id: dto.municipio_id ?? null,
+      perfil_id: dto.perfil_id,
+    };
+    if (!ability.can('create', subject('usuario', candidate as never))) {
       throw new ForbiddenException('Acesso negado');
+    }
+
+    // Non-admin callers are not allowed to grant administrador/ilm perfis
+    // regardless of what CASL's municipio condition says. Enforce here.
+    if (!isAdminCaller) {
+      const targetPerfil = await this.prisma.perfil.findUnique({
+        where: { id: dto.perfil_id },
+        select: { nome: true },
+      });
+      if (!targetPerfil) {
+        throw new ForbiddenException('Acesso negado');
+      }
+      if (['administrador', 'ilm'].includes(targetPerfil.nome)) {
+        throw new ForbiddenException(
+          'Acesso negado: apenas administradores podem criar usuários com esse perfil',
+        );
+      }
     }
 
     const email = dto.email.trim().toLowerCase();

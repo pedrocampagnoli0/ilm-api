@@ -43,8 +43,11 @@ export class AvaliacaoController {
 
   @Get(':id')
   @ApiOperation({ summary: 'Buscar avaliação por ID' })
-  findOne(@Param('id', ParseUUIDPipe) id: string) {
-    return this.avaliacaoService.findOne(id);
+  findOne(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('id', ParseUUIDPipe) id: string,
+  ) {
+    return this.avaliacaoService.findOne(user, id);
   }
 
   @Post()

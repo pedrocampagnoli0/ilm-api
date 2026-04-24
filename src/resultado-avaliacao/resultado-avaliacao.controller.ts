@@ -45,9 +45,10 @@ export class ResultadoAvaliacaoController {
   @Post('radar')
   @ApiOperation({ summary: 'Dados para radar report (F2 alunos com nível 1-2)' })
   radar(
+    @CurrentUser() user: AuthenticatedUser,
     @Body() body: { avaliacao_ids: string[]; ciclo_id: string },
   ) {
-    return this.resultadoService.radar(body.avaliacao_ids, body.ciclo_id);
+    return this.resultadoService.radar(user, body.avaliacao_ids, body.ciclo_id);
   }
 
   @Get('history/:turmaId/:avaliacaoId')
@@ -63,17 +64,19 @@ export class ResultadoAvaliacaoController {
   @Delete('blank/:alunoId')
   @ApiOperation({ summary: 'Excluir resultados em branco de um aluno' })
   deleteBlankForAluno(
+    @CurrentUser() user: AuthenticatedUser,
     @Param('alunoId', ParseUUIDPipe) alunoId: string,
   ) {
-    return this.resultadoService.deleteBlankForAluno(alunoId);
+    return this.resultadoService.deleteBlankForAluno(user, alunoId);
   }
 
   @Delete(':avaliacaoId/:alunoId')
   @ApiOperation({ summary: 'Excluir resultados de um aluno para uma avaliação' })
   deleteForAlunoAvaliacao(
+    @CurrentUser() user: AuthenticatedUser,
     @Param('avaliacaoId', ParseUUIDPipe) avaliacaoId: string,
     @Param('alunoId', ParseUUIDPipe) alunoId: string,
   ) {
-    return this.resultadoService.deleteForAlunoAvaliacao(avaliacaoId, alunoId);
+    return this.resultadoService.deleteForAlunoAvaliacao(user, avaliacaoId, alunoId);
   }
 }

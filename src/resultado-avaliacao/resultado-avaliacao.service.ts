@@ -5,6 +5,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
+import { accessibleBy } from '@casl/prisma';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { AbilityFactory } from '../common/casl/ability.factory.js';
 import type { AuthenticatedUser } from '../common/auth/interfaces/authenticated-user.interface.js';
@@ -12,6 +13,26 @@ import type { ListResultadosQueryDto } from './dto/list-resultados-query.dto.js'
 import type { UpsertBatchDto } from './dto/upsert-batch.dto.js';
 import { PaginatedResponseDto } from '../common/dto/paginated-response.dto.js';
 import { buildPrismaSelect } from '../common/utils/build-prisma-select.js';
+
+/**
+ * Tenant-scope filter for resultado_avaliacao.
+ *
+ * CASL has no explicit rules for `resultado_avaliacao` (tracked as a "Future"
+ * item in the AbilityFactory). We compose the scope via the `aluno` subject:
+ * a user can see/touch a resultado iff they can see/touch the aluno it
+ * belongs to. For administrador/ilm, getCaslWhere-style short-circuit returns
+ * an unscoped filter.
+ */
+function resultadoAlunoScope(
+  user: AuthenticatedUser,
+  ability: ReturnType<AbilityFactory['createForUser']>,
+  action: 'read' | 'delete',
+): Prisma.resultado_avaliacaoWhereInput {
+  if (user.perfil === 'administrador' || user.perfil === 'ilm') {
+    return {};
+  }
+  return { aluno: accessibleBy(ability, action).aluno };
+}
 
 const RESULTADO_INCLUDE = {
   aluno: { select: { id: true, nome: true, is_transferido: true } },
@@ -26,7 +47,10 @@ export class ResultadoAvaliacaoService {
   ) {}
 
   async findAll(user: AuthenticatedUser, query: ListResultadosQueryDto) {
-    const filters: Prisma.resultado_avaliacaoWhereInput[] = [];
+    const ability = this.abilityFactory.createForUser(user);
+    const filters: Prisma.resultado_avaliacaoWhereInput[] = [
+      resultadoAlunoScope(user, ability, 'read'),
+    ];
 
     if (query.avaliacao_id) {
       filters.push({ avaliacao_id: query.avaliacao_id });
@@ -143,8 +167,22 @@ export class ResultadoAvaliacaoService {
 
   /**
    * Get change history — wraps the `get_avaliacao_change_history` RPC.
+   * Verifies the caller can read the target turma before invoking the RPC
+   * (the RPC's own body is not in the migration ledger, so we can't rely on
+   * it for tenant scope).
    */
   async getChangeHistory(user: AuthenticatedUser, turmaId: string, avaliacaoId: string) {
+    const ability = this.abilityFactory.createForUser(user);
+    if (!(user.perfil === 'administrador' || user.perfil === 'ilm')) {
+      const turmaWhere = accessibleBy(ability, 'read').turma;
+      const visible = await this.prisma.turma.count({
+        where: { AND: [turmaWhere, { id: turmaId }] },
+      });
+      if (visible === 0) {
+        throw new ForbiddenException('Acesso negado');
+      }
+    }
+
     const result = await this.prisma.$queryRawUnsafe<
       Array<{
         id: string;
@@ -167,18 +205,26 @@ export class ResultadoAvaliacaoService {
 
   /**
    * Radar report — F2 students with nivel_leitura or nivel_escrita in (1,2).
-   * Wraps the complex PostgREST inner-join query.
+   * Scoped to the students the caller is allowed to read.
    */
-  async radar(avaliacaoIds: string[], cicloId: string) {
+  async radar(user: AuthenticatedUser, avaliacaoIds: string[], cicloId: string) {
+    const ability = this.abilityFactory.createForUser(user);
+    const scope = resultadoAlunoScope(user, ability, 'read');
+
     const data = await this.prisma.resultado_avaliacao.findMany({
       where: {
-        avaliacao_id: { in: avaliacaoIds },
-        ciclo_id: cicloId,
-        ausente: false,
-        aluno: { is_transferido: false },
-        OR: [
-          { f2_nivel_leitura: { in: [1, 2] } },
-          { f2_nivel_escrita: { in: [1, 2] } },
+        AND: [
+          scope,
+          {
+            avaliacao_id: { in: avaliacaoIds },
+            ciclo_id: cicloId,
+            ausente: false,
+            aluno: { is_transferido: false },
+            OR: [
+              { f2_nivel_leitura: { in: [1, 2] } },
+              { f2_nivel_escrita: { in: [1, 2] } },
+            ],
+          },
         ],
       },
       select: {
@@ -196,8 +242,11 @@ export class ResultadoAvaliacaoService {
 
   /**
    * Delete resultados for a student (only blank ones — respondido_em IS NULL).
+   * Verifies the caller can delete the target aluno before proceeding.
    */
-  async deleteBlankForAluno(alunoId: string) {
+  async deleteBlankForAluno(user: AuthenticatedUser, alunoId: string) {
+    await this.assertCanDeleteAluno(user, alunoId);
+
     const result = await this.prisma.resultado_avaliacao.deleteMany({
       where: {
         aluno_id: alunoId,
@@ -210,8 +259,11 @@ export class ResultadoAvaliacaoService {
 
   /**
    * Delete resultados for a specific student + avaliacao.
+   * Verifies the caller can delete the target aluno before proceeding.
    */
-  async deleteForAlunoAvaliacao(avaliacaoId: string, alunoId: string) {
+  async deleteForAlunoAvaliacao(user: AuthenticatedUser, avaliacaoId: string, alunoId: string) {
+    await this.assertCanDeleteAluno(user, alunoId);
+
     const result = await this.prisma.resultado_avaliacao.deleteMany({
       where: {
         avaliacao_id: avaliacaoId,
@@ -220,5 +272,28 @@ export class ResultadoAvaliacaoService {
     });
 
     return { data: { count: result.count } };
+  }
+
+  /**
+   * Verifies the caller has `delete` permission on the target aluno under CASL.
+   * Throws NotFound if the aluno doesn't exist, Forbidden if the caller lacks scope.
+   */
+  private async assertCanDeleteAluno(user: AuthenticatedUser, alunoId: string): Promise<void> {
+    if (user.perfil === 'administrador' || user.perfil === 'ilm') {
+      const exists = await this.prisma.aluno.count({ where: { id: alunoId } });
+      if (exists === 0) throw new NotFoundException('Aluno não encontrado');
+      return;
+    }
+
+    const ability = this.abilityFactory.createForUser(user);
+    const alunoWhere = accessibleBy(ability, 'delete').aluno;
+    const matched = await this.prisma.aluno.count({
+      where: { AND: [alunoWhere, { id: alunoId }] },
+    });
+    if (matched === 0) {
+      // Cannot distinguish "does not exist" from "not allowed" without leaking.
+      // Return Forbidden to avoid ID enumeration.
+      throw new ForbiddenException('Acesso negado');
+    }
   }
 }

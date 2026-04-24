@@ -41,6 +41,10 @@ function createMockPrisma() {
     },
     turma: {
       findUnique: jest.fn().mockResolvedValue({ id: 'turma-uuid', escola_id: 'esc' }),
+      count: jest.fn().mockResolvedValue(1),
+    },
+    aluno: {
+      count: jest.fn().mockResolvedValue(1),
     },
     $queryRawUnsafe: queryRawUnsafe,
     $transaction: jest.fn().mockImplementation((argOrCallback: unknown) => {
@@ -153,22 +157,43 @@ describe('ResultadoAvaliacaoService', () => {
   });
 
   describe('deleteBlankForAluno', () => {
-    it('should delete blank resultados', async () => {
-      const result = await service.deleteBlankForAluno('aluno-uuid');
+    it('should delete blank resultados for admin', async () => {
+      const result = await service.deleteBlankForAluno(makeAdmin(), 'aluno-uuid');
       expect(result.data.count).toBe(1);
       expect(prisma.resultado_avaliacao.deleteMany).toHaveBeenCalledWith({
         where: { aluno_id: 'aluno-uuid', respondido_em: null },
       });
     });
+
+    it('should throw NotFoundException when admin targets a non-existent aluno', async () => {
+      prisma.aluno.count.mockResolvedValueOnce(0);
+      await expect(service.deleteBlankForAluno(makeAdmin(), 'missing')).rejects.toThrow(
+        NotFoundException,
+      );
+    });
+
+    it('should throw ForbiddenException when a professor targets an aluno they cannot delete', async () => {
+      prisma.aluno.count.mockResolvedValueOnce(0);
+      await expect(service.deleteBlankForAluno(makeProfessor(), 'aluno-uuid')).rejects.toThrow(
+        ForbiddenException,
+      );
+    });
   });
 
   describe('deleteForAlunoAvaliacao', () => {
-    it('should delete resultados for aluno + avaliacao', async () => {
-      const result = await service.deleteForAlunoAvaliacao('av-uuid', 'aluno-uuid');
+    it('should delete resultados for aluno + avaliacao when admin', async () => {
+      const result = await service.deleteForAlunoAvaliacao(makeAdmin(), 'av-uuid', 'aluno-uuid');
       expect(result.data.count).toBe(1);
       expect(prisma.resultado_avaliacao.deleteMany).toHaveBeenCalledWith({
         where: { avaliacao_id: 'av-uuid', aluno_id: 'aluno-uuid' },
       });
+    });
+
+    it('should throw ForbiddenException when a professor targets an aluno they cannot delete', async () => {
+      prisma.aluno.count.mockResolvedValueOnce(0);
+      await expect(
+        service.deleteForAlunoAvaliacao(makeProfessor(), 'av-uuid', 'other-aluno'),
+      ).rejects.toThrow(ForbiddenException);
     });
   });
 });

@@ -3,6 +3,7 @@ import {
   ForbiddenException,
   Injectable,
   NotFoundException,
+  UnprocessableEntityException,
 } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { accessibleBy } from '@casl/prisma';
@@ -239,7 +240,41 @@ export class UsuarioService {
       throw new ForbiddenException('Acesso negado');
     }
 
-    await this.prisma.usuario.delete({ where: { id } });
+    try {
+      // Optional role-slot FKs (nullable) are cleared first so the delete is
+      // not blocked by them. Required slots (turma.professora_id) and history
+      // tables (rankings, pontuações, notificações, logs, import batches) still
+      // block — those represent real history that should be preserved.
+      await this.prisma.$transaction(async (tx) => {
+        await tx.turma.updateMany({
+          where: { auxiliar_id: id },
+          data: { auxiliar_id: null },
+        });
+        await tx.escola.updateMany({
+          where: { coord_inf_id: id },
+          data: { coord_inf_id: null },
+        });
+        await tx.escola.updateMany({
+          where: { coord_fund_id: id },
+          data: { coord_fund_id: null },
+        });
+        await tx.escola.updateMany({
+          where: { diretor_id: id },
+          data: { diretor_id: null },
+        });
+        await tx.usuario.delete({ where: { id } });
+      });
+    } catch (e) {
+      if (
+        e instanceof Prisma.PrismaClientKnownRequestError &&
+        e.code === 'P2003'
+      ) {
+        throw new UnprocessableEntityException(
+          'Não é possível excluir: o usuário possui histórico no sistema (rankings, avaliações, importações ou turmas como professora titular). Para preservar o histórico, desative o usuário (Ativo → Inativo) em vez de excluir.',
+        );
+      }
+      throw e;
+    }
 
     return { data: { id } };
   }

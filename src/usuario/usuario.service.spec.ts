@@ -1,5 +1,6 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { ConflictException, ForbiddenException, NotFoundException } from '@nestjs/common';
+import { ConflictException, ForbiddenException, NotFoundException, UnprocessableEntityException } from '@nestjs/common';
+import { Prisma } from '@prisma/client';
 import { UsuarioService } from './usuario.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { AbilityFactory } from '../common/casl/ability.factory';
@@ -75,7 +76,7 @@ const mockUsuarioWithIncludes = {
 // ─── Mock PrismaService ─────────────────────────────────
 
 function createMockPrisma() {
-  return {
+  const prisma: any = {
     usuario: {
       findMany: jest.fn().mockResolvedValue([mockUsuarioWithIncludes]),
       findUnique: jest.fn().mockResolvedValue(mockUsuarioWithIncludes),
@@ -90,10 +91,25 @@ function createMockPrisma() {
       // Default mock returns 'professor' perfil; individual tests override as needed.
       findUnique: jest.fn().mockResolvedValue({ nome: 'professor' }),
     },
-    $transaction: jest.fn().mockImplementation((args: unknown[]) =>
-      Promise.all(args),
-    ),
+    turma: {
+      updateMany: jest.fn().mockResolvedValue({ count: 0 }),
+    },
+    escola: {
+      updateMany: jest.fn().mockResolvedValue({ count: 0 }),
+    },
   };
+
+  // Support both array form (Promise.all) and callback form (tx => ...).
+  // Real Prisma passes a transaction client; in tests we pass the same mock
+  // so call assertions on prisma.<table>.<op> still register.
+  prisma.$transaction = jest.fn().mockImplementation((arg: unknown) => {
+    if (typeof arg === 'function') {
+      return (arg as (tx: typeof prisma) => unknown)(prisma);
+    }
+    return Promise.all(arg as unknown[]);
+  });
+
+  return prisma;
 }
 
 // ─── Tests ──────────────────────────────────────────────
@@ -337,6 +353,60 @@ describe('UsuarioService', () => {
       prisma.usuario.findUnique.mockResolvedValue(otherUser);
       await expect(service.delete(makeProfessor(), 'other-uuid'))
         .rejects.toThrow(ForbiddenException);
+    });
+
+    it('should null out turma.auxiliar_id before deleting', async () => {
+      await service.delete(makeAdmin(), 'user-uuid');
+      expect(prisma.turma.updateMany).toHaveBeenCalledWith({
+        where: { auxiliar_id: 'user-uuid' },
+        data: { auxiliar_id: null },
+      });
+    });
+
+    it('should null out escola.coord_inf_id, coord_fund_id, diretor_id before deleting', async () => {
+      await service.delete(makeAdmin(), 'user-uuid');
+      const calls = prisma.escola.updateMany.mock.calls.map((c: any[]) => c[0]);
+      expect(calls).toEqual(
+        expect.arrayContaining([
+          { where: { coord_inf_id: 'user-uuid' }, data: { coord_inf_id: null } },
+          { where: { coord_fund_id: 'user-uuid' }, data: { coord_fund_id: null } },
+          { where: { diretor_id: 'user-uuid' }, data: { diretor_id: null } },
+        ]),
+      );
+    });
+
+    it('should run cleanup + delete inside a single transaction', async () => {
+      await service.delete(makeAdmin(), 'user-uuid');
+      expect(prisma.$transaction).toHaveBeenCalledTimes(1);
+      // Callback form: first arg is a function
+      expect(typeof prisma.$transaction.mock.calls[0][0]).toBe('function');
+    });
+
+    it('should map P2003 to UnprocessableEntityException with a clearer message', async () => {
+      // Simulate FK violation from a non-nullable / historical reference
+      // (e.g. ranking_professor_diario, pontuacao_avaliacao_aluno, turma.professora_id).
+      const p2003 = new Prisma.PrismaClientKnownRequestError(
+        'Foreign key constraint failed',
+        { code: 'P2003', clientVersion: 'test' },
+      );
+      prisma.usuario.delete.mockRejectedValue(p2003);
+
+      try {
+        await service.delete(makeAdmin(), 'user-uuid');
+        throw new Error('expected delete to throw');
+      } catch (e) {
+        expect(e).toBeInstanceOf(UnprocessableEntityException);
+        expect((e as Error).message).toMatch(/hist[oó]ric/i);
+      }
+    });
+
+    it('should propagate non-P2003 prisma errors as-is', async () => {
+      const other = new Prisma.PrismaClientKnownRequestError(
+        'Some other error',
+        { code: 'P2025', clientVersion: 'test' },
+      );
+      prisma.usuario.delete.mockRejectedValueOnce(other);
+      await expect(service.delete(makeAdmin(), 'user-uuid')).rejects.toBe(other);
     });
   });
 

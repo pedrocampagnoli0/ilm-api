@@ -51,7 +51,7 @@ export class ObservacaoService {
     const obs = await this.prisma.observacao_assessora.findUnique({ where: { id } });
     if (!obs) throw new NotFoundException('Observação não encontrada');
     if (!ability.can('read', subject('observacao_assessora', obs))) {
-      throw new ForbiddenException('Acesso negado');
+      throw new ForbiddenException('Você não pode acessar esta observação — verifique se o município está nas suas atribuições.');
     }
     return { data: obs };
   }
@@ -59,11 +59,13 @@ export class ObservacaoService {
   async create(user: AuthenticatedUser, dto: CreateObservacaoDto) {
     const ability = this.abilityFactory.createForUser(user);
     if (!ability.can('create', subject('observacao_assessora', { municipio_id: dto.municipio_id } as any))) {
-      throw new ForbiddenException('Acesso negado');
+      throw new ForbiddenException('Você não tem permissão para criar observações neste município.');
     }
 
     if (!dto.usuario_id && (!dto.pessoa_nome || !dto.pessoa_perfil)) {
-      throw new BadRequestException('Pessoa externa exige pessoa_nome e pessoa_perfil');
+      throw new BadRequestException(
+        'Para registrar pessoa externa (sem usuario_id), forneça pessoa_nome e pessoa_perfil.',
+      );
     }
 
     const obs = await this.prisma.observacao_assessora.create({
@@ -85,7 +87,7 @@ export class ObservacaoService {
     const existing = await this.prisma.observacao_assessora.findUnique({ where: { id } });
     if (!existing) throw new NotFoundException('Observação não encontrada');
     if (!ability.can('update', subject('observacao_assessora', existing))) {
-      throw new ForbiddenException('Acesso negado');
+      throw new ForbiddenException('Você não pode editar observações deste município.');
     }
 
     const data: Prisma.observacao_assessoraUncheckedUpdateInput = {};
@@ -104,7 +106,7 @@ export class ObservacaoService {
     const existing = await this.prisma.observacao_assessora.findUnique({ where: { id } });
     if (!existing) throw new NotFoundException('Observação não encontrada');
     if (!ability.can('delete', subject('observacao_assessora', existing))) {
-      throw new ForbiddenException('Acesso negado');
+      throw new ForbiddenException('Você não pode excluir observações deste município.');
     }
     await this.prisma.observacao_assessora.delete({ where: { id } });
     return { data: { count: 1 } };

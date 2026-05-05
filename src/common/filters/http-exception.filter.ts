@@ -151,6 +151,15 @@ export class GlobalExceptionFilter implements ExceptionFilter {
           ? body
           : (body as { message: string | string[] }).message ?? exception.message;
     } else if (
+      // CASL throws ForbiddenError (plain Error subclass) when no rules match.
+      // Without this branch it falls through to the generic 500 path.
+      exception instanceof Error &&
+      (exception.name === 'ForbiddenError' || exception.constructor?.name === 'ForbiddenError')
+    ) {
+      status = HttpStatus.FORBIDDEN;
+      message =
+        'Você não tem permissão para esta operação. Verifique suas atribuições de município ou contate o administrador.';
+    } else if (
       exception instanceof Prisma.PrismaClientKnownRequestError
     ) {
       switch (exception.code) {

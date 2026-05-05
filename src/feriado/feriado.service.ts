@@ -55,10 +55,10 @@ export class FeriadoService {
   async create(user: AuthenticatedUser, dto: CreateFeriadoDto) {
     const ability = this.abilityFactory.createForUser(user);
     if (!ability.can('create', 'feriado')) {
-      throw new ForbiddenException('Acesso negado');
+      throw new ForbiddenException('Apenas perfis ilm ou administrador podem gerenciar feriados.');
     }
     if (dto.municipio_id && dto.uf_sigla) {
-      throw new BadRequestException('Use apenas um: municipio_id ou uf_sigla');
+      throw new BadRequestException('Feriado deve ter escopo único: nacional (sem UF/município), estadual (apenas UF) ou municipal (apenas município) — não combine UF e município.');
     }
 
     const feriado = await this.prisma.feriado.create({
@@ -77,7 +77,7 @@ export class FeriadoService {
     const existing = await this.prisma.feriado.findUnique({ where: { id } });
     if (!existing) throw new NotFoundException('Feriado não encontrado');
     if (!ability.can('update', subject('feriado', existing))) {
-      throw new ForbiddenException('Acesso negado');
+      throw new ForbiddenException('Apenas perfis ilm ou administrador podem gerenciar feriados.');
     }
 
     const data: Prisma.feriadoUncheckedUpdateInput = {};
@@ -89,7 +89,7 @@ export class FeriadoService {
     const willHaveMuni = data.municipio_id ?? existing.municipio_id;
     const willHaveUf = data.uf_sigla ?? existing.uf_sigla;
     if (willHaveMuni && willHaveUf) {
-      throw new BadRequestException('Use apenas um: municipio_id ou uf_sigla');
+      throw new BadRequestException('Feriado deve ter escopo único: nacional (sem UF/município), estadual (apenas UF) ou municipal (apenas município) — não combine UF e município.');
     }
 
     const updated = await this.prisma.feriado.update({ where: { id }, data });
@@ -101,7 +101,7 @@ export class FeriadoService {
     const existing = await this.prisma.feriado.findUnique({ where: { id } });
     if (!existing) throw new NotFoundException('Feriado não encontrado');
     if (!ability.can('delete', subject('feriado', existing))) {
-      throw new ForbiddenException('Acesso negado');
+      throw new ForbiddenException('Apenas perfis ilm ou administrador podem gerenciar feriados.');
     }
     await this.prisma.feriado.delete({ where: { id } });
     return { data: { count: 1 } };

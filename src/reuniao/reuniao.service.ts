@@ -69,7 +69,7 @@ export class ReuniaoService {
     if (!reuniao) throw new NotFoundException('Reunião não encontrada');
 
     if (!ability.can('read', subject('reuniao', reuniao))) {
-      throw new ForbiddenException('Acesso negado');
+      throw new ForbiddenException('Você não pode acessar esta reunião — verifique se este município está nas suas atribuições.');
     }
     return { data: reuniao };
   }
@@ -79,7 +79,7 @@ export class ReuniaoService {
 
     // Authorize against the resource shape
     if (!ability.can('create', subject('reuniao', { municipio_id: dto.municipio_id } as any))) {
-      throw new ForbiddenException('Acesso negado');
+      throw new ForbiddenException('Você não tem permissão para criar reuniões neste município.');
     }
 
     if (dto.recorrencia) {
@@ -90,7 +90,7 @@ export class ReuniaoService {
 
   private async createSingle(user: AuthenticatedUser, dto: CreateReuniaoDto) {
     if (!dto.inicio) {
-      throw new BadRequestException('inicio é obrigatório quando não há recorrência');
+      throw new BadRequestException('Campo "inicio" é obrigatório para reuniões sem recorrência.');
     }
     const reuniao = await this.prisma.reuniao.create({
       data: {
@@ -121,7 +121,9 @@ export class ReuniaoService {
       semanaDoMes: rec.semana_do_mes,
     });
     if (startsAtIso.length === 0) {
-      throw new BadRequestException('Recorrência não gerou nenhuma ocorrência válida');
+      throw new BadRequestException(
+        'Recorrência inválida: verifique se a data "ate" é posterior a hoje, se há ao menos um dia da semana selecionado, e — para regra "mensal-semana" — se "semana_do_mes" está entre 1 e 5.',
+      );
     }
 
     const serieId = randomUUID();
@@ -163,12 +165,14 @@ export class ReuniaoService {
     const existing = await this.prisma.reuniao.findUnique({ where: { id } });
     if (!existing) throw new NotFoundException('Reunião não encontrada');
     if (!ability.can('update', subject('reuniao', existing))) {
-      throw new ForbiddenException('Acesso negado');
+      throw new ForbiddenException('Você não pode editar reuniões deste município.');
     }
 
     if (scope === 'series') {
       if (!existing.serie_id) {
-        throw new BadRequestException('Reunião não pertence a uma série');
+        throw new BadRequestException(
+          'Não é possível atualizar a série inteira: esta reunião é única, não recorrente. Use scope=this.',
+        );
       }
       // Series-scoped updates: only metadata fields (not inicio/duracao). Pessoas are replaced per-row.
       const data: Prisma.reuniaoUncheckedUpdateInput = {};
@@ -240,7 +244,7 @@ export class ReuniaoService {
     const existing = await this.prisma.reuniao.findUnique({ where: { id } });
     if (!existing) throw new NotFoundException('Reunião não encontrada');
     if (!ability.can('delete', subject('reuniao', existing))) {
-      throw new ForbiddenException('Acesso negado');
+      throw new ForbiddenException('Você não pode excluir reuniões deste município.');
     }
 
     if (scope === 'series' && existing.serie_id) {
@@ -268,7 +272,9 @@ export class ReuniaoService {
     }
     // External contact (no portal account) — denorm fields required by XOR check.
     if (!p.nome || !p.perfil) {
-      throw new BadRequestException('Pessoa externa exige nome e perfil');
+      throw new BadRequestException(
+        'Para registrar pessoa externa (sem usuario_id), forneça nome e perfil.',
+      );
     }
     return {
       usuario_id: null,

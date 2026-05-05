@@ -46,11 +46,13 @@ export class ContatoPrincipalService {
   async create(user: AuthenticatedUser, dto: CreateContatoPrincipalDto) {
     const ability = this.abilityFactory.createForUser(user);
     if (!ability.can('create', subject('contato_principal', { municipio_id: dto.municipio_id } as any))) {
-      throw new ForbiddenException('Acesso negado');
+      throw new ForbiddenException('Você não tem permissão para criar contatos neste município.');
     }
 
     if (!dto.usuario_id && (!dto.nome || !dto.perfil)) {
-      throw new BadRequestException('Contato externo exige nome e perfil');
+      throw new BadRequestException(
+        'Para registrar contato externo (sem usuario_id), forneça nome e perfil.',
+      );
     }
 
     const contato = await this.prisma.contato_principal.create({
@@ -75,7 +77,7 @@ export class ContatoPrincipalService {
     const existing = await this.prisma.contato_principal.findUnique({ where: { id } });
     if (!existing) throw new NotFoundException('Contato não encontrado');
     if (!ability.can('update', subject('contato_principal', existing))) {
-      throw new ForbiddenException('Acesso negado');
+      throw new ForbiddenException('Você não pode editar contatos deste município.');
     }
 
     const data: Prisma.contato_principalUncheckedUpdateInput = {};
@@ -96,7 +98,7 @@ export class ContatoPrincipalService {
     const existing = await this.prisma.contato_principal.findUnique({ where: { id } });
     if (!existing) throw new NotFoundException('Contato não encontrado');
     if (!ability.can('delete', subject('contato_principal', existing))) {
-      throw new ForbiddenException('Acesso negado');
+      throw new ForbiddenException('Você não pode excluir contatos deste município.');
     }
     await this.prisma.contato_principal.delete({ where: { id } });
     return { data: { count: 1 } };

@@ -22,7 +22,7 @@ export class AssessoraMunicipioService {
   /** Returns all ilm/administrador users with their current município assignment list. */
   async list(user: AuthenticatedUser): Promise<{ data: AssessoraSummary[] }> {
     if (user.perfil !== 'ilm' && user.perfil !== 'administrador') {
-      throw new ForbiddenException('Acesso negado');
+      throw new ForbiddenException('Apenas perfis ilm ou administrador podem listar assessoras.');
     }
 
     const usuarios = await this.prisma.usuario.findMany({
@@ -68,14 +68,18 @@ export class AssessoraMunicipioService {
       );
     }
 
-    // Validate all municípios exist + are active
+    // Validate all municípios exist
     if (municipioIds.length > 0) {
       const municipios = await this.prisma.municipio.findMany({
         where: { id: { in: municipioIds } },
         select: { id: true },
       });
       if (municipios.length !== municipioIds.length) {
-        throw new BadRequestException('Um ou mais municípios não existem');
+        const found = new Set(municipios.map((m) => m.id));
+        const missing = municipioIds.filter((id) => !found.has(id));
+        throw new BadRequestException(
+          `Município(s) não encontrado(s): ${missing.join(', ')}`,
+        );
       }
     }
 

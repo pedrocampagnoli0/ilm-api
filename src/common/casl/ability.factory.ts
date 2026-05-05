@@ -10,6 +10,10 @@ import type {
   municipio as Municipio,
   turma as Turma,
   usuario as Usuario,
+  reuniao as Reuniao,
+  observacao_assessora as ObservacaoAssessora,
+  feriado as Feriado,
+  contato_principal as ContatoPrincipal,
 } from '@prisma/client';
 import { Injectable } from '@nestjs/common';
 import type { AuthenticatedUser } from '../auth/interfaces/authenticated-user.interface.js';
@@ -21,6 +25,10 @@ type AppSubjects =
       municipio: Municipio;
       turma: Turma;
       usuario: Usuario;
+      reuniao: Reuniao;
+      observacao_assessora: ObservacaoAssessora;
+      feriado: Feriado;
+      contato_principal: ContatoPrincipal;
     }>
   | 'all';
 
@@ -257,7 +265,87 @@ function defineAlunoRules(
   }
 }
 
-// Future: defineAvaliacaoRules, defineResultadoRules, etc.
+function defineReuniaoRules(
+  can: Can,
+  cannot: Cannot,
+  user: AuthenticatedUser,
+) {
+  switch (user.perfil) {
+    case 'administrador':
+    case 'ilm':
+      can('manage', 'reuniao');
+      break;
+
+    case 'secretaria':
+      if (user.municipioId) {
+        can('read', 'reuniao', { municipio_id: user.municipioId });
+      }
+      break;
+
+    default:
+      cannot('manage', 'reuniao');
+      break;
+  }
+}
+
+function defineObservacaoRules(
+  can: Can,
+  cannot: Cannot,
+  user: AuthenticatedUser,
+) {
+  switch (user.perfil) {
+    case 'administrador':
+    case 'ilm':
+      can('manage', 'observacao_assessora');
+      break;
+
+    case 'secretaria':
+      if (user.municipioId) {
+        can('read', 'observacao_assessora', { municipio_id: user.municipioId });
+      }
+      break;
+
+    default:
+      cannot('manage', 'observacao_assessora');
+      break;
+  }
+}
+
+function defineFeriadoRules(
+  can: Can,
+  cannot: Cannot,
+  user: AuthenticatedUser,
+) {
+  // Everyone can read feriados (used by Agenda calendar overlay)
+  can('read', 'feriado');
+
+  if (user.perfil === 'administrador' || user.perfil === 'ilm') {
+    can('manage', 'feriado');
+  }
+}
+
+function defineContatoPrincipalRules(
+  can: Can,
+  cannot: Cannot,
+  user: AuthenticatedUser,
+) {
+  switch (user.perfil) {
+    case 'administrador':
+    case 'ilm':
+      can('manage', 'contato_principal');
+      break;
+
+    case 'secretaria':
+      if (user.municipioId) {
+        can('read', 'contato_principal', { municipio_id: user.municipioId });
+      }
+      break;
+
+    default:
+      cannot('manage', 'contato_principal');
+      break;
+  }
+}
 
 // ─── Factory ────────────────────────────────────────────
 
@@ -282,6 +370,10 @@ export class AbilityFactory {
     defineTurmaRules(can, cannot, user);
     defineUsuarioRules(can, cannot, user);
     defineAlunoRules(can, cannot, user);
+    defineReuniaoRules(can, cannot, user);
+    defineObservacaoRules(can, cannot, user);
+    defineFeriadoRules(can, cannot, user);
+    defineContatoPrincipalRules(can, cannot, user);
 
     const ability = build();
 

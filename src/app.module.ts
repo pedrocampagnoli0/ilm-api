@@ -17,6 +17,10 @@ import { ResultadoAvaliacaoModule } from './resultado-avaliacao/resultado-avalia
 import { LogLoginModule } from './log-login/log-login.module.js';
 import { RankingModule } from './ranking/ranking.module.js';
 import { ImportBulkModule } from './import-bulk/import-bulk.module.js';
+import { ReuniaoModule } from './reuniao/reuniao.module.js';
+import { ObservacaoModule } from './observacao/observacao.module.js';
+import { FeriadoModule } from './feriado/feriado.module.js';
+import { ContatoPrincipalModule } from './contato-principal/contato-principal.module.js';
 
 @Module({
   imports: [
@@ -52,6 +56,10 @@ import { ImportBulkModule } from './import-bulk/import-bulk.module.js';
     LogLoginModule,
     RankingModule,
     ImportBulkModule,
+    ReuniaoModule,
+    ObservacaoModule,
+    FeriadoModule,
+    ContatoPrincipalModule,
   ],
   providers: [
     { provide: APP_GUARD, useClass: ThrottlerGuard },

@@ -28,6 +28,19 @@ enum resultado_login {
   falha
 }
 
+enum reuniao_tipo {
+  professor_1_1 @map("1:1-professor")
+  gestao
+  generica
+}
+
+enum reuniao_recorrencia_regra {
+  semanal
+  quinzenal
+  mensal
+  mensal_semana @map("mensal-semana")
+}
+
 // ─── Tables ──────────────────────────────────────────────
 
 model perfil {
@@ -45,6 +58,7 @@ model municipio {
   uf_sigla            String    @db.VarChar(2)
   ativo               Boolean   @default(true)
   logo_municipio_url  String?
+  timezone            String    @default("America/Araguaina")
   created_at          DateTime  @default(now()) @db.Timestamptz(6)
   updated_at          DateTime  @default(now()) @updatedAt @db.Timestamptz(6)
 
@@ -58,6 +72,10 @@ model municipio {
   import_aluno_batches import_aluno_batch[]
   ranking_professores  ranking_professor_diario[] @relation("ranking_prof_municipio")
   ranking_escolas      ranking_escola_diario[]    @relation("ranking_escola_municipio")
+  reunioes             reuniao[]
+  observacoes          observacao_assessora[]
+  feriados             feriado[]
+  contatos_principais  contato_principal[]
 }
 
 model usuario {
@@ -84,6 +102,11 @@ model usuario {
   rankings              ranking_professor_diario[]
   import_batches        import_batch[]
   import_aluno_batches  import_aluno_batch[]
+  reunioes_pessoa       reuniao_pessoa[]
+  reunioes_criadas      reuniao[]              @relation("reuniao_criado_por")
+  observacoes_alvo      observacao_assessora[] @relation("observacao_pessoa")
+  observacoes_criadas   observacao_assessora[] @relation("observacao_criado_por")
+  contatos_principais   contato_principal[]
 }
 
 model escola {
@@ -248,6 +271,7 @@ model uf {
   nome  String
 
   municipios municipio[]
+  feriados   feriado[]
 
   @@map("uf")
 }
@@ -425,4 +449,105 @@ model import_aluno_batch_item {
 
   @@index([batch_id])
   @@index([aluno_id])
+}
+
+// ─── Painel da Assessora ────────────────────────────────
+
+model reuniao {
+  id                          String                       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  municipio_id                String                       @db.Uuid
+  tipo                        reuniao_tipo
+  inicio                      DateTime                     @db.Timestamptz(6)
+  duracao_min                 Int
+  link                        String?
+  observacao                  String?
+  aconteceu                   Boolean                      @default(false)
+  cancelada                   Boolean                      @default(false)
+  serie_id                    String?                      @db.Uuid
+  recorrencia_regra           reuniao_recorrencia_regra?
+  recorrencia_ate             DateTime?                    @db.Date
+  recorrencia_semana_do_mes   Int?
+  criado_por                  String?                      @db.Uuid
+  created_at                  DateTime                     @default(now()) @db.Timestamptz(6)
+  updated_at                  DateTime                     @default(now()) @updatedAt @db.Timestamptz(6)
+
+  municipio municipio        @relation(fields: [municipio_id], references: [id], onDelete: Cascade)
+  criador   usuario?         @relation("reuniao_criado_por", fields: [criado_por], references: [id])
+  pessoas   reuniao_pessoa[]
+
+  @@index([municipio_id, inicio], map: "idx_reuniao_municipio_inicio")
+  @@index([inicio], map: "idx_reuniao_inicio")
+  @@index([serie_id], map: "idx_reuniao_serie")
+}
+
+model reuniao_pessoa {
+  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  reuniao_id  String   @db.Uuid
+  usuario_id  String?  @db.Uuid
+  nome        String?
+  email       String?
+  perfil      String?
+  presente    Boolean?
+  created_at  DateTime @default(now()) @db.Timestamptz(6)
+
+  reuniao reuniao  @relation(fields: [reuniao_id], references: [id], onDelete: Cascade)
+  usuario usuario? @relation(fields: [usuario_id], references: [id])
+
+  @@index([reuniao_id], map: "idx_reuniao_pessoa_reuniao")
+  @@index([usuario_id], map: "idx_reuniao_pessoa_usuario")
+}
+
+model observacao_assessora {
+  id            String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  municipio_id  String   @db.Uuid
+  usuario_id    String?  @db.Uuid
+  pessoa_nome   String?
+  pessoa_perfil String?
+  data          DateTime @db.Date
+  conteudo      String
+  criado_por    String?  @db.Uuid
+  created_at    DateTime @default(now()) @db.Timestamptz(6)
+  updated_at    DateTime @default(now()) @updatedAt @db.Timestamptz(6)
+
+  municipio municipio @relation(fields: [municipio_id], references: [id], onDelete: Cascade)
+  usuario   usuario?  @relation("observacao_pessoa", fields: [usuario_id], references: [id])
+  criador   usuario?  @relation("observacao_criado_por", fields: [criado_por], references: [id])
+
+  @@index([municipio_id, data(sort: Desc)], map: "idx_observacao_municipio_data")
+  @@index([usuario_id], map: "idx_observacao_usuario")
+}
+
+model feriado {
+  id            String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  nome          String
+  data          DateTime  @db.Date
+  municipio_id  String?   @db.Uuid
+  uf_sigla      String?   @db.VarChar(2)
+  created_at    DateTime  @default(now()) @db.Timestamptz(6)
+
+  municipio municipio? @relation(fields: [municipio_id], references: [id], onDelete: Cascade)
+  uf        uf?        @relation(fields: [uf_sigla], references: [sigla])
+
+  @@index([data], map: "idx_feriado_data")
+  @@index([municipio_id], map: "idx_feriado_municipio")
+  @@index([uf_sigla], map: "idx_feriado_uf")
+}
+
+model contato_principal {
+  id            String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  municipio_id  String   @db.Uuid
+  usuario_id    String?  @db.Uuid
+  nome          String?
+  email         String?
+  telefone      String?
+  perfil        String?
+  cargo         String?
+  ordem         Int      @default(0)
+  created_at    DateTime @default(now()) @db.Timestamptz(6)
+  updated_at    DateTime @default(now()) @updatedAt @db.Timestamptz(6)
+
+  municipio municipio @relation(fields: [municipio_id], references: [id], onDelete: Cascade)
+  usuario   usuario?  @relation(fields: [usuario_id], references: [id])
+
+  @@index([municipio_id, ordem], map: "idx_contato_principal_municipio")
 }

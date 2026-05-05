@@ -8,14 +8,14 @@ import type { AuthenticatedUser } from '../common/auth/interfaces/authenticated-
 function makeAdmin(): AuthenticatedUser {
   return {
     id: 'admin-uuid', authUserId: 'auth-admin', nome: 'Admin', email: 'admin@test.com',
-    perfil: 'administrador', municipioId: null, escolaIds: [], turmaIds: [], ativo: true,
+    perfil: 'administrador', municipioId: null, escolaIds: [], turmaIds: [], assessoraMunicipioIds: [], ativo: true,
   };
 }
 
 function makeProfessor(): AuthenticatedUser {
   return {
     id: 'prof-uuid', authUserId: 'auth-prof', nome: 'Prof', email: 'prof@test.com',
-    perfil: 'professor', municipioId: 'muni', escolaIds: ['esc'], turmaIds: ['turma-uuid'],
+    perfil: 'professor', municipioId: 'muni', escolaIds: ['esc'], turmaIds: ['turma-uuid'], assessoraMunicipioIds: [],
     ativo: true,
   };
 }

@@ -9,7 +9,7 @@ import type { ListAlunosQueryDto } from './dto/list-alunos-query.dto';
 function makeAdmin(overrides: Partial<AuthenticatedUser> = {}): AuthenticatedUser {
   return {
     id: 'admin-uuid', authUserId: 'auth-admin', nome: 'Admin', email: 'admin@test.com',
-    perfil: 'administrador', municipioId: null, escolaIds: [], turmaIds: [], ativo: true,
+    perfil: 'administrador', municipioId: null, escolaIds: [], turmaIds: [], assessoraMunicipioIds: [], ativo: true,
     ...overrides,
   };
 }
@@ -17,7 +17,7 @@ function makeAdmin(overrides: Partial<AuthenticatedUser> = {}): AuthenticatedUse
 function makeProfessor(overrides: Partial<AuthenticatedUser> = {}): AuthenticatedUser {
   return {
     id: 'prof-uuid', authUserId: 'auth-prof', nome: 'Prof', email: 'prof@test.com',
-    perfil: 'professor', municipioId: 'muni-uuid', escolaIds: ['escola-uuid'], turmaIds: ['turma-uuid'],
+    perfil: 'professor', municipioId: 'muni-uuid', escolaIds: ['escola-uuid'], turmaIds: ['turma-uuid'], assessoraMunicipioIds: [],
     ativo: true, ...overrides,
   };
 }

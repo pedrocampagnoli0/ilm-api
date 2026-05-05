@@ -8,14 +8,14 @@ import type { AuthenticatedUser } from '../common/auth/interfaces/authenticated-
 function makeAdmin(): AuthenticatedUser {
   return {
     id: 'admin-uuid', authUserId: 'auth-admin', nome: 'Admin', email: 'admin@test.com',
-    perfil: 'administrador', municipioId: null, escolaIds: [], turmaIds: [], ativo: true,
+    perfil: 'administrador', municipioId: null, escolaIds: [], turmaIds: [], assessoraMunicipioIds: [], ativo: true,
   };
 }
 
 function makeProfessor(): AuthenticatedUser {
   return {
     id: 'prof-uuid', authUserId: 'auth-prof', nome: 'Prof', email: 'prof@test.com',
-    perfil: 'professor', municipioId: 'muni', escolaIds: ['esc'], turmaIds: ['tur'], ativo: true,
+    perfil: 'professor', municipioId: 'muni', escolaIds: ['esc'], turmaIds: ['tur'], assessoraMunicipioIds: [], ativo: true,
   };
 }
 
@@ -82,7 +82,7 @@ describe('AvaliacaoService', () => {
     // mockAvaliacao.municipio.id === 'muni'; this professor has municipioId === 'other'
     const professorOtherMuni: AuthenticatedUser = {
       id: 'prof2-uuid', authUserId: 'auth-prof2', nome: 'Prof2', email: 'prof2@test.com',
-      perfil: 'professor', municipioId: 'other', escolaIds: [], turmaIds: [], ativo: true,
+      perfil: 'professor', municipioId: 'other', escolaIds: [], turmaIds: [], assessoraMunicipioIds: [], ativo: true,
     };
     await expect(service.findOne(professorOtherMuni, 'av-uuid')).rejects.toThrow(ForbiddenException);
   });
@@ -90,7 +90,7 @@ describe('AvaliacaoService', () => {
   it('should deny findAll when professor supplies a different municipio_id (F-09)', async () => {
     const professorOtherMuni: AuthenticatedUser = {
       id: 'prof3-uuid', authUserId: 'auth-prof3', nome: 'Prof3', email: 'prof3@test.com',
-      perfil: 'professor', municipioId: 'mine', escolaIds: [], turmaIds: [], ativo: true,
+      perfil: 'professor', municipioId: 'mine', escolaIds: [], turmaIds: [], assessoraMunicipioIds: [], ativo: true,
     };
     await expect(
       service.findAll(professorOtherMuni, { page: 1, limit: 20, skip: 0, municipio_id: 'other' } as any),

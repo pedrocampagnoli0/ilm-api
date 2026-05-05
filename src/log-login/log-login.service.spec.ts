@@ -5,10 +5,10 @@ import { PrismaService } from '../prisma/prisma.service';
 import type { AuthenticatedUser } from '../common/auth/interfaces/authenticated-user.interface';
 
 function makeAdmin(): AuthenticatedUser {
-  return { id: 'a', authUserId: 'a', nome: 'A', email: 'a@t.com', perfil: 'administrador', municipioId: null, escolaIds: [], turmaIds: [], ativo: true };
+  return { id: 'a', authUserId: 'a', nome: 'A', email: 'a@t.com', perfil: 'administrador', municipioId: null, escolaIds: [], turmaIds: [], assessoraMunicipioIds: [], ativo: true };
 }
 function makeProf(): AuthenticatedUser {
-  return { id: 'p', authUserId: 'p', nome: 'P', email: 'p@t.com', perfil: 'professor', municipioId: 'm', escolaIds: ['e'], turmaIds: ['t'], ativo: true };
+  return { id: 'p', authUserId: 'p', nome: 'P', email: 'p@t.com', perfil: 'professor', municipioId: 'm', escolaIds: ['e'], turmaIds: ['t'], assessoraMunicipioIds: [], ativo: true };
 }
 
 const mockLog = { id: 'log1', email: 'x@y.com', resultado: 'sucesso', criado_em: new Date() };

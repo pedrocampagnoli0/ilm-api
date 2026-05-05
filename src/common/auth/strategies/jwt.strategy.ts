@@ -56,6 +56,7 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
         escolas_as_diretor: { select: { id: true } },
         turmas_as_professora: { select: { id: true, escola_id: true } },
         turmas_as_auxiliar: { select: { id: true, escola_id: true } },
+        assessora_municipios: { select: { municipio_id: true } },
       },
     });
 
@@ -93,6 +94,7 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
       municipioId: usuario.municipio_id,
       escolaIds: [...escolaIdSet],
       turmaIds: [...turmaIdSet],
+      assessoraMunicipioIds: usuario.assessora_municipios.map((am) => am.municipio_id),
       ativo: usuario.ativo,
     };
 

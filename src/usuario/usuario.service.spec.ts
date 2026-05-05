@@ -18,7 +18,7 @@ function makeAdmin(overrides: Partial<AuthenticatedUser> = {}): AuthenticatedUse
     perfil: 'administrador',
     municipioId: null,
     escolaIds: [],
-    turmaIds: [],
+    turmaIds: [], assessoraMunicipioIds: [],
     ativo: true,
     ...overrides,
   };
@@ -33,7 +33,7 @@ function makeProfessor(overrides: Partial<AuthenticatedUser> = {}): Authenticate
     perfil: 'professor',
     municipioId: 'muni-uuid',
     escolaIds: ['escola-uuid'],
-    turmaIds: ['turma-uuid'],
+    turmaIds: ['turma-uuid'], assessoraMunicipioIds: [],
     ativo: true,
     ...overrides,
   };
@@ -48,7 +48,7 @@ function makeSecretaria(overrides: Partial<AuthenticatedUser> = {}): Authenticat
     perfil: 'secretaria',
     municipioId: 'muni-uuid',
     escolaIds: [],
-    turmaIds: [],
+    turmaIds: [], assessoraMunicipioIds: [],
     ativo: true,
     ...overrides,
   };

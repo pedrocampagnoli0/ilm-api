@@ -5,7 +5,7 @@ import type { AuthenticatedUser } from '../common/auth/interfaces/authenticated-
 
 const mockAdmin: AuthenticatedUser = {
   id: 'admin-uuid', authUserId: 'auth-admin', nome: 'Admin', email: 'admin@test.com',
-  perfil: 'administrador', municipioId: null, escolaIds: [], turmaIds: [], ativo: true,
+  perfil: 'administrador', municipioId: null, escolaIds: [], turmaIds: [], assessoraMunicipioIds: [], ativo: true,
 };
 
 const mockAluno = { id: 'aluno-uuid', nome: 'Test Aluno' };

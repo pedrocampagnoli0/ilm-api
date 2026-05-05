@@ -76,6 +76,7 @@ model municipio {
   observacoes          observacao_assessora[]
   feriados             feriado[]
   contatos_principais  contato_principal[]
+  assessora_municipios assessora_municipio[]
 }
 
 model usuario {
@@ -107,6 +108,8 @@ model usuario {
   observacoes_alvo      observacao_assessora[] @relation("observacao_pessoa")
   observacoes_criadas   observacao_assessora[] @relation("observacao_criado_por")
   contatos_principais   contato_principal[]
+  assessora_municipios  assessora_municipio[]  @relation("assessora")
+  assessora_municipios_created assessora_municipio[] @relation("assessora_creator")
 }
 
 model escola {
@@ -531,6 +534,21 @@ model feriado {
   @@index([data], map: "idx_feriado_data")
   @@index([municipio_id], map: "idx_feriado_municipio")
   @@index([uf_sigla], map: "idx_feriado_uf")
+}
+
+model assessora_municipio {
+  usuario_id   String   @db.Uuid
+  municipio_id String   @db.Uuid
+  created_at   DateTime @default(now()) @db.Timestamptz(6)
+  created_by   String?  @db.Uuid
+
+  usuario   usuario   @relation("assessora", fields: [usuario_id], references: [id], onDelete: Cascade)
+  municipio municipio @relation(fields: [municipio_id], references: [id], onDelete: Cascade)
+  creator   usuario?  @relation("assessora_creator", fields: [created_by], references: [id])
+
+  @@id([usuario_id, municipio_id])
+  @@index([usuario_id], map: "idx_assessora_municipio_usuario")
+  @@index([municipio_id], map: "idx_assessora_municipio_municipio")
 }
 
 model contato_principal {

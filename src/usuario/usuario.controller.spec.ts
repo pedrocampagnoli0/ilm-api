@@ -11,7 +11,7 @@ const mockAdmin: AuthenticatedUser = {
   perfil: 'administrador',
   municipioId: null,
   escolaIds: [],
-  turmaIds: [],
+  turmaIds: [], assessoraMunicipioIds: [],
   ativo: true,
 };
 

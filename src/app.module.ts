@@ -21,6 +21,7 @@ import { ReuniaoModule } from './reuniao/reuniao.module.js';
 import { ObservacaoModule } from './observacao/observacao.module.js';
 import { FeriadoModule } from './feriado/feriado.module.js';
 import { ContatoPrincipalModule } from './contato-principal/contato-principal.module.js';
+import { AssessoraMunicipioModule } from './assessora-municipio/assessora-municipio.module.js';
 
 @Module({
   imports: [
@@ -60,6 +61,7 @@ import { ContatoPrincipalModule } from './contato-principal/contato-principal.mo
     ObservacaoModule,
     FeriadoModule,
     ContatoPrincipalModule,
+    AssessoraMunicipioModule,
   ],
   providers: [
     { provide: APP_GUARD, useClass: ThrottlerGuard },

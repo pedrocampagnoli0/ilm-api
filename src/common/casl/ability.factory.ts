@@ -273,7 +273,10 @@ function defineReuniaoRules(
   switch (user.perfil) {
     case 'administrador':
     case 'ilm':
-      can('manage', 'reuniao');
+      // Scoped to municípios assigned via assessora_municipio. Empty list = no access.
+      if (user.assessoraMunicipioIds.length > 0) {
+        can('manage', 'reuniao', { municipio_id: { in: user.assessoraMunicipioIds } });
+      }
       break;
 
     case 'secretaria':
@@ -296,7 +299,9 @@ function defineObservacaoRules(
   switch (user.perfil) {
     case 'administrador':
     case 'ilm':
-      can('manage', 'observacao_assessora');
+      if (user.assessoraMunicipioIds.length > 0) {
+        can('manage', 'observacao_assessora', { municipio_id: { in: user.assessoraMunicipioIds } });
+      }
       break;
 
     case 'secretaria':
@@ -332,7 +337,9 @@ function defineContatoPrincipalRules(
   switch (user.perfil) {
     case 'administrador':
     case 'ilm':
-      can('manage', 'contato_principal');
+      if (user.assessoraMunicipioIds.length > 0) {
+        can('manage', 'contato_principal', { municipio_id: { in: user.assessoraMunicipioIds } });
+      }
       break;
 
     case 'secretaria':

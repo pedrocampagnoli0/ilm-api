@@ -6,22 +6,25 @@ import { AbilityFactory } from '../common/casl/ability.factory';
 import type { AuthenticatedUser } from '../common/auth/interfaces/authenticated-user.interface';
 import type { CreateReuniaoDto } from './dto/create-reuniao.dto';
 
-function makeAdmin(): AuthenticatedUser {
+function makeAdmin(assessoraMunicipioIds: string[] = ['m-1', 'other-muni']): AuthenticatedUser {
   return {
     id: 'admin-id', authUserId: 'auth-admin', nome: 'Admin', email: 'a@x.com',
-    perfil: 'administrador', municipioId: null, escolaIds: [], turmaIds: [], ativo: true,
+    perfil: 'administrador', municipioId: null, escolaIds: [], turmaIds: [],
+    assessoraMunicipioIds, ativo: true,
   };
 }
 function makeSecretaria(municipioId = 'm-1'): AuthenticatedUser {
   return {
     id: 'sec-id', authUserId: 'auth-sec', nome: 'Sec', email: 's@x.com',
-    perfil: 'secretaria', municipioId, escolaIds: [], turmaIds: [], ativo: true,
+    perfil: 'secretaria', municipioId, escolaIds: [], turmaIds: [],
+    assessoraMunicipioIds: [], ativo: true,
   };
 }
 function makeProfessor(): AuthenticatedUser {
   return {
     id: 'prof-id', authUserId: 'auth-prof', nome: 'P', email: 'p@x.com',
-    perfil: 'professor', municipioId: 'm-1', escolaIds: [], turmaIds: [], ativo: true,
+    perfil: 'professor', municipioId: 'm-1', escolaIds: [], turmaIds: [],
+    assessoraMunicipioIds: [], ativo: true,
   };
 }
 

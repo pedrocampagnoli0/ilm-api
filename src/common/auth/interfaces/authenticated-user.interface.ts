@@ -15,5 +15,7 @@ export interface AuthenticatedUser {
   municipioId: string | null;
   escolaIds: string[]; // escola IDs this user can access (via diretor/coord/professor)
   turmaIds: string[]; // turma IDs for professors/auxiliars (direct assignment)
+  /** Municípios this user covers as an assessora (only populated for ilm/administrador). Empty = no Painel access. */
+  assessoraMunicipioIds: string[];
   ativo: boolean;
 }

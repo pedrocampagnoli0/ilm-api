@@ -96,8 +96,9 @@ describe('ReuniaoService', () => {
       expect(prisma.reuniao.findMany).toHaveBeenCalled();
     });
 
-    it('professor blocked by CASL (no read rule defined)', async () => {
-      await expect(service.findAll(makeProfessor(), {})).rejects.toThrow();
+    it('professor with no CASL rules gets empty list (graceful)', async () => {
+      const r = await service.findAll(makeProfessor(), {});
+      expect(r.data).toEqual([]);
     });
   });
 

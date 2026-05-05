@@ -25,7 +25,14 @@ export class ReuniaoService {
 
   async findAll(user: AuthenticatedUser, query: ListReunioesQueryDto) {
     const ability = this.abilityFactory.createForUser(user);
-    const caslWhere = accessibleBy(ability, 'read').reuniao;
+    // accessibleBy throws ForbiddenError when no rules exist for the subject
+    // (e.g. ilm/admin with empty assessora_municipio assignments). Treat as empty list.
+    let caslWhere: Prisma.reuniaoWhereInput;
+    try {
+      caslWhere = accessibleBy(ability, 'read').reuniao;
+    } catch {
+      return { data: [] };
+    }
 
     const filters: Prisma.reuniaoWhereInput[] = [caslWhere];
     if (query.municipio_id) filters.push({ municipio_id: query.municipio_id });

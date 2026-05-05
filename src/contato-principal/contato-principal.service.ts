@@ -23,7 +23,12 @@ export class ContatoPrincipalService {
 
   async findAll(user: AuthenticatedUser, query: ListContatosPrincipaisQueryDto) {
     const ability = this.abilityFactory.createForUser(user);
-    const caslWhere = accessibleBy(ability, 'read').contato_principal;
+    let caslWhere: Prisma.contato_principalWhereInput;
+    try {
+      caslWhere = accessibleBy(ability, 'read').contato_principal;
+    } catch {
+      return { data: [] };
+    }
 
     const filters: Prisma.contato_principalWhereInput[] = [caslWhere];
     if (query.municipio_id) filters.push({ municipio_id: query.municipio_id });

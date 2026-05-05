@@ -23,7 +23,12 @@ export class ObservacaoService {
 
   async findAll(user: AuthenticatedUser, query: ListObservacoesQueryDto) {
     const ability = this.abilityFactory.createForUser(user);
-    const caslWhere = accessibleBy(ability, 'read').observacao_assessora;
+    let caslWhere: Prisma.observacao_assessoraWhereInput;
+    try {
+      caslWhere = accessibleBy(ability, 'read').observacao_assessora;
+    } catch {
+      return { data: [] };
+    }
 
     const filters: Prisma.observacao_assessoraWhereInput[] = [caslWhere];
     if (query.municipio_id) filters.push({ municipio_id: query.municipio_id });

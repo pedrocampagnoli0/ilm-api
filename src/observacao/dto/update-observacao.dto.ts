@@ -30,10 +30,10 @@ export class UpdateObservacaoDto {
   @IsDateString()
   data?: string;
 
-  @ApiPropertyOptional()
+  @ApiPropertyOptional({ description: 'Limite de 256 caracteres' })
   @IsOptional()
   @IsString()
   @MinLength(1)
-  @MaxLength(2000)
+  @MaxLength(256)
   conteudo?: string;
 }

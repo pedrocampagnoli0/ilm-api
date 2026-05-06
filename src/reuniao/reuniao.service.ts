@@ -83,7 +83,10 @@ export class ReuniaoService {
           include: { usuario: { select: { id: true, nome: true, email: true, perfil: { select: { nome: true } } } } },
         },
       },
-      take: 500,
+      // Cap large to support assessoras with many municípios + wide windows. A
+      // typical assessora year has < 1000 reuniões; 10000 is comfortably above
+      // any realistic single-fetch result while preventing unbounded memory.
+      take: 10_000,
     });
 
     return { data: reunioes.map((r) => normalizeReuniao(r as any)) };

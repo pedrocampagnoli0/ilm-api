@@ -16,6 +16,40 @@ import type { UpdateReuniaoDto } from './dto/update-reuniao.dto.js';
 import type { ListReunioesQueryDto } from './dto/list-reunioes-query.dto.js';
 import { expandRecurrence } from './recurrence.js';
 
+// Prisma enum @map: client uses these identifiers, DB stores the @map values.
+// We have to translate at the service boundary because the DB strings contain
+// characters that aren't valid Prisma identifiers ("1:1-professor", "mensal-semana").
+const TIPO_DB_TO_PRISMA: Record<string, 'professor_1_1' | 'gestao' | 'generica'> = {
+  '1:1-professor': 'professor_1_1',
+  gestao: 'gestao',
+  generica: 'generica',
+};
+const TIPO_PRISMA_TO_DB: Record<string, '1:1-professor' | 'gestao' | 'generica'> = {
+  professor_1_1: '1:1-professor',
+  gestao: 'gestao',
+  generica: 'generica',
+};
+const REGRA_DB_TO_PRISMA: Record<string, 'semanal' | 'quinzenal' | 'mensal' | 'mensal_semana'> = {
+  semanal: 'semanal',
+  quinzenal: 'quinzenal',
+  mensal: 'mensal',
+  'mensal-semana': 'mensal_semana',
+};
+const REGRA_PRISMA_TO_DB: Record<string, 'semanal' | 'quinzenal' | 'mensal' | 'mensal-semana'> = {
+  semanal: 'semanal',
+  quinzenal: 'quinzenal',
+  mensal: 'mensal',
+  mensal_semana: 'mensal-semana',
+};
+
+function normalizeReuniao<T extends { tipo: string; recorrencia_regra?: string | null; pessoas?: unknown }>(r: T): T {
+  return {
+    ...r,
+    tipo: TIPO_PRISMA_TO_DB[r.tipo] ?? r.tipo,
+    recorrencia_regra: r.recorrencia_regra ? (REGRA_PRISMA_TO_DB[r.recorrencia_regra] ?? r.recorrencia_regra) : r.recorrencia_regra,
+  } as T;
+}
+
 @Injectable()
 export class ReuniaoService {
   constructor(
@@ -52,7 +86,7 @@ export class ReuniaoService {
       take: 500,
     });
 
-    return { data: reunioes };
+    return { data: reunioes.map((r) => normalizeReuniao(r as any)) };
   }
 
   async findOne(user: AuthenticatedUser, id: string) {
@@ -71,7 +105,7 @@ export class ReuniaoService {
     if (!ability.can('read', subject('reuniao', reuniao))) {
       throw new ForbiddenException('Você não pode acessar esta reunião — verifique se este município está nas suas atribuições.');
     }
-    return { data: reuniao };
+    return { data: normalizeReuniao(reuniao as any) };
   }
 
   async create(user: AuthenticatedUser, dto: CreateReuniaoDto) {
@@ -95,7 +129,7 @@ export class ReuniaoService {
     const reuniao = await this.prisma.reuniao.create({
       data: {
         municipio_id: dto.municipio_id,
-        tipo: dto.tipo as any,
+        tipo: TIPO_DB_TO_PRISMA[dto.tipo] as any,
         inicio: new Date(dto.inicio),
         duracao_min: dto.duracao_min,
         link: dto.link ?? null,
@@ -108,7 +142,7 @@ export class ReuniaoService {
       },
       include: { pessoas: { include: { usuario: { select: { id: true, nome: true, email: true, perfil: { select: { nome: true } } } } } } },
     });
-    return { data: [reuniao] };
+    return { data: [normalizeReuniao(reuniao as any)] };
   }
 
   private async createSeries(user: AuthenticatedUser, dto: CreateReuniaoDto) {
@@ -132,7 +166,7 @@ export class ReuniaoService {
         this.prisma.reuniao.create({
           data: {
             municipio_id: dto.municipio_id,
-            tipo: dto.tipo as any,
+            tipo: TIPO_DB_TO_PRISMA[dto.tipo] as any,
             inicio: new Date(iso),
             duracao_min: dto.duracao_min,
             link: dto.link ?? null,
@@ -140,7 +174,7 @@ export class ReuniaoService {
             aconteceu: dto.aconteceu ?? false,
             criado_por: user.id,
             serie_id: serieId,
-            recorrencia_regra: rec.regra as any,
+            recorrencia_regra: REGRA_DB_TO_PRISMA[rec.regra] as any,
             recorrencia_ate: new Date(rec.ate),
             recorrencia_semana_do_mes: rec.semana_do_mes ?? null,
             pessoas: {
@@ -151,7 +185,7 @@ export class ReuniaoService {
         }),
       ),
     );
-    return { data: created };
+    return { data: created.map((r) => normalizeReuniao(r as any)) };
   }
 
   async update(
@@ -176,7 +210,7 @@ export class ReuniaoService {
       }
       // Series-scoped updates: only metadata fields (not inicio/duracao). Pessoas are replaced per-row.
       const data: Prisma.reuniaoUncheckedUpdateInput = {};
-      if (dto.tipo !== undefined) data.tipo = dto.tipo as any;
+      if (dto.tipo !== undefined) data.tipo = TIPO_DB_TO_PRISMA[dto.tipo] as any;
       if (dto.link !== undefined) data.link = dto.link;
       if (dto.observacao !== undefined) data.observacao = dto.observacao;
       if (dto.aconteceu !== undefined) data.aconteceu = dto.aconteceu;
@@ -208,11 +242,11 @@ export class ReuniaoService {
           include: { pessoas: { include: { usuario: { select: { id: true, nome: true, email: true, perfil: { select: { nome: true } } } } } } },
         });
       });
-      return { data: result };
+      return { data: result.map((r) => normalizeReuniao(r as any)) };
     }
 
     const data: Prisma.reuniaoUncheckedUpdateInput = {};
-    if (dto.tipo !== undefined) data.tipo = dto.tipo as any;
+    if (dto.tipo !== undefined) data.tipo = TIPO_DB_TO_PRISMA[dto.tipo] as any;
     if (dto.inicio !== undefined) data.inicio = new Date(dto.inicio);
     if (dto.duracao_min !== undefined) data.duracao_min = dto.duracao_min;
     if (dto.link !== undefined) data.link = dto.link;
@@ -232,7 +266,7 @@ export class ReuniaoService {
       }
       return tx.reuniao.findUnique({ where: { id }, include: { pessoas: { include: { usuario: { select: { id: true, nome: true, email: true, perfil: { select: { nome: true } } } } } } } });
     });
-    return { data: updated };
+    return { data: updated ? normalizeReuniao(updated as any) : updated };
   }
 
   async remove(

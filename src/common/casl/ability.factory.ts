@@ -12,6 +12,7 @@ import type {
   usuario as Usuario,
   reuniao as Reuniao,
   observacao_assessora as ObservacaoAssessora,
+  tentativa_contato as TentativaContato,
   feriado as Feriado,
   contato_principal as ContatoPrincipal,
 } from '@prisma/client';
@@ -27,6 +28,7 @@ type AppSubjects =
       usuario: Usuario;
       reuniao: Reuniao;
       observacao_assessora: ObservacaoAssessora;
+      tentativa_contato: TentativaContato;
       feriado: Feriado;
       contato_principal: ContatoPrincipal;
     }>
@@ -316,6 +318,31 @@ function defineObservacaoRules(
   }
 }
 
+function defineTentativaContatoRules(
+  can: Can,
+  cannot: Cannot,
+  user: AuthenticatedUser,
+) {
+  switch (user.perfil) {
+    case 'administrador':
+    case 'ilm':
+      if (user.assessoraMunicipioIds.length > 0) {
+        can('manage', 'tentativa_contato', { municipio_id: { in: user.assessoraMunicipioIds } });
+      }
+      break;
+
+    case 'secretaria':
+      if (user.municipioId) {
+        can('read', 'tentativa_contato', { municipio_id: user.municipioId });
+      }
+      break;
+
+    default:
+      cannot('manage', 'tentativa_contato');
+      break;
+  }
+}
+
 function defineFeriadoRules(
   can: Can,
   cannot: Cannot,
@@ -379,6 +406,7 @@ export class AbilityFactory {
     defineAlunoRules(can, cannot, user);
     defineReuniaoRules(can, cannot, user);
     defineObservacaoRules(can, cannot, user);
+    defineTentativaContatoRules(can, cannot, user);
     defineFeriadoRules(can, cannot, user);
     defineContatoPrincipalRules(can, cannot, user);
 

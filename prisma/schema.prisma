@@ -74,6 +74,7 @@ model municipio {
   ranking_escolas      ranking_escola_diario[]    @relation("ranking_escola_municipio")
   reunioes             reuniao[]
   observacoes          observacao_assessora[]
+  tentativas_contato   tentativa_contato[]
   feriados             feriado[]
   contatos_principais  contato_principal[]
   assessora_municipios assessora_municipio[]
@@ -107,6 +108,8 @@ model usuario {
   reunioes_criadas      reuniao[]              @relation("reuniao_criado_por")
   observacoes_alvo      observacao_assessora[] @relation("observacao_pessoa")
   observacoes_criadas   observacao_assessora[] @relation("observacao_criado_por")
+  tentativas_alvo       tentativa_contato[]    @relation("tentativa_pessoa")
+  tentativas_criadas    tentativa_contato[]    @relation("tentativa_criado_por")
   contatos_principais   contato_principal[]
   assessora_municipios  assessora_municipio[]  @relation("assessora")
   assessora_municipios_created assessora_municipio[] @relation("assessora_creator")
@@ -518,6 +521,28 @@ model observacao_assessora {
 
   @@index([municipio_id, data(sort: Desc)], map: "idx_observacao_municipio_data")
   @@index([usuario_id], map: "idx_observacao_usuario")
+}
+
+model tentativa_contato {
+  id            String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  municipio_id  String   @db.Uuid
+  usuario_id    String?  @db.Uuid
+  pessoa_nome   String?
+  pessoa_perfil String?
+  data          DateTime @db.Date
+  canal         String
+  resultado     String
+  observacao    String?
+  criado_por    String?  @db.Uuid
+  created_at    DateTime @default(now()) @db.Timestamptz(6)
+  updated_at    DateTime @default(now()) @updatedAt @db.Timestamptz(6)
+
+  municipio municipio @relation(fields: [municipio_id], references: [id], onDelete: Cascade)
+  usuario   usuario?  @relation("tentativa_pessoa", fields: [usuario_id], references: [id])
+  criador   usuario?  @relation("tentativa_criado_por", fields: [criado_por], references: [id])
+
+  @@index([municipio_id, data(sort: Desc)], map: "idx_tentativa_municipio_data")
+  @@index([usuario_id], map: "idx_tentativa_usuario")
 }
 
 model feriado {

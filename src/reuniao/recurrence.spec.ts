@@ -82,6 +82,61 @@ describe('expandRecurrence', () => {
     });
     expect(r.length).toBeLessThanOrEqual(200);
   });
+
+  describe('timezone-aware', () => {
+    // The bug: production runs in UTC, so a São Paulo user picking 08:00 used
+    // to land at 08:00 UTC = 05:00 BRT — 3h earlier than intended. With the
+    // município's IANA timezone passed through, the wall-clock "08:00" in
+    // America/Sao_Paulo (UTC-3, no DST since 2019) now lands at 11:00 UTC.
+
+    it('semanal at 08:00 in America/Sao_Paulo lands at 11:00Z', () => {
+      const r = expandRecurrence({
+        diasSemana: [1], horaInicio: '08:00', regra: 'semanal',
+        ate: '2026-01-13', startFrom, timezone: 'America/Sao_Paulo',
+      });
+      expect(r).toHaveLength(2); // Jan 5 + Jan 12 (both Mondays)
+      for (const iso of r) {
+        expect(iso.endsWith('11:00:00.000Z')).toBe(true);
+      }
+    });
+
+    it('semanal at 08:00 in America/Manaus (UTC-4, no DST) lands at 12:00Z', () => {
+      const r = expandRecurrence({
+        diasSemana: [1], horaInicio: '08:00', regra: 'semanal',
+        ate: '2026-01-13', startFrom, timezone: 'America/Manaus',
+      });
+      expect(r).toHaveLength(2);
+      for (const iso of r) {
+        expect(iso.endsWith('12:00:00.000Z')).toBe(true);
+      }
+    });
+
+    it('mensal-semana respects timezone offset', () => {
+      const r = expandRecurrence({
+        diasSemana: [3], horaInicio: '14:30', regra: 'mensal-semana',
+        semanaDoMes: 1, ate: '2026-03-31', startFrom,
+        timezone: 'America/Sao_Paulo',
+      });
+      expect(r).toHaveLength(3);
+      for (const iso of r) {
+        expect(iso.endsWith('17:30:00.000Z')).toBe(true);
+      }
+    });
+
+    it('produces calendar-correct dates in the target timezone', () => {
+      // Picking 02:00 wall-clock in São Paulo on a date should not roll over
+      // into the previous day after UTC conversion (it'd be 05:00 UTC same day).
+      const r = expandRecurrence({
+        diasSemana: [4], horaInicio: '02:00', regra: 'semanal',
+        ate: '2026-01-08', startFrom, timezone: 'America/Sao_Paulo',
+      });
+      // Jan 1 and Jan 8 2026 are both Thursdays in the window.
+      expect(r).toEqual([
+        '2026-01-01T05:00:00.000Z',
+        '2026-01-08T05:00:00.000Z',
+      ]);
+    });
+  });
 });
 
 describe('nthWeekdayOfMonth', () => {

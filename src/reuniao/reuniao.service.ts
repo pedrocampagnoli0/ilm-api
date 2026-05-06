@@ -150,12 +150,20 @@ export class ReuniaoService {
 
   private async createSeries(user: AuthenticatedUser, dto: CreateReuniaoDto) {
     const rec = dto.recorrencia!;
+    // Look up the município's IANA timezone so the wall-clock hora_inicio is
+    // interpreted in the user's local zone, not the server's UTC. Without this
+    // every "08:00" would land at 08:00 UTC = 05:00 BRT (the 3-hour offset bug).
+    const muni = await this.prisma.municipio.findUnique({
+      where: { id: dto.municipio_id },
+      select: { timezone: true },
+    });
     const startsAtIso = expandRecurrence({
       diasSemana: rec.dias_semana,
       horaInicio: rec.hora_inicio,
       regra: rec.regra,
       ate: rec.ate,
       semanaDoMes: rec.semana_do_mes,
+      timezone: muni?.timezone ?? undefined,
     });
     if (startsAtIso.length === 0) {
       throw new BadRequestException(

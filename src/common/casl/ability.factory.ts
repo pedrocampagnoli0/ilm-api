@@ -279,6 +279,8 @@ function defineReuniaoRules(
       if (user.assessoraMunicipioIds.length > 0) {
         can('manage', 'reuniao', { municipio_id: { in: user.assessoraMunicipioIds } });
       }
+      // município-less (tipo=generica) — only the creator can see/edit/delete.
+      can('manage', 'reuniao', { municipio_id: null, criado_por: user.id });
       break;
 
     case 'secretaria':

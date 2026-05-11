@@ -113,6 +113,8 @@ model usuario {
   contatos_principais   contato_principal[]
   assessora_municipios  assessora_municipio[]  @relation("assessora")
   assessora_municipios_created assessora_municipio[] @relation("assessora_creator")
+  impersonate_perm       usuario_impersonate_perm?  @relation("impersonate_target")
+  impersonate_perms_granted usuario_impersonate_perm[] @relation("impersonate_grantor")
 }
 
 model escola {
@@ -575,6 +577,15 @@ model assessora_municipio {
   @@id([usuario_id, municipio_id])
   @@index([usuario_id], map: "idx_assessora_municipio_usuario")
   @@index([municipio_id], map: "idx_assessora_municipio_municipio")
+}
+
+model usuario_impersonate_perm {
+  usuario_id String   @id @db.Uuid
+  granted_at DateTime @default(now()) @db.Timestamptz(6)
+  granted_by String?  @db.Uuid
+
+  usuario usuario  @relation("impersonate_target", fields: [usuario_id], references: [id], onDelete: Cascade)
+  grantor usuario? @relation("impersonate_grantor", fields: [granted_by], references: [id], onDelete: SetNull)
 }
 
 model contato_principal {

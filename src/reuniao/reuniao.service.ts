@@ -135,6 +135,7 @@ export class ReuniaoService {
         tipo: TIPO_DB_TO_PRISMA[dto.tipo] as any,
         inicio: new Date(dto.inicio),
         duracao_min: dto.duracao_min,
+        titulo: dto.titulo ?? null,
         link: dto.link ?? null,
         observacao: dto.observacao ?? null,
         aconteceu: dto.aconteceu ?? false,
@@ -180,6 +181,7 @@ export class ReuniaoService {
             tipo: TIPO_DB_TO_PRISMA[dto.tipo] as any,
             inicio: new Date(iso),
             duracao_min: dto.duracao_min,
+            titulo: dto.titulo ?? null,
             link: dto.link ?? null,
             observacao: dto.observacao ?? null,
             aconteceu: dto.aconteceu ?? false,
@@ -222,6 +224,7 @@ export class ReuniaoService {
       // Series-scoped updates: only metadata fields (not inicio/duracao). Pessoas are replaced per-row.
       const data: Prisma.reuniaoUncheckedUpdateInput = {};
       if (dto.tipo !== undefined) data.tipo = TIPO_DB_TO_PRISMA[dto.tipo] as any;
+      if (dto.titulo !== undefined) data.titulo = dto.titulo;
       if (dto.link !== undefined) data.link = dto.link;
       if (dto.observacao !== undefined) data.observacao = dto.observacao;
       if (dto.aconteceu !== undefined) data.aconteceu = dto.aconteceu;
@@ -260,6 +263,7 @@ export class ReuniaoService {
     if (dto.tipo !== undefined) data.tipo = TIPO_DB_TO_PRISMA[dto.tipo] as any;
     if (dto.inicio !== undefined) data.inicio = new Date(dto.inicio);
     if (dto.duracao_min !== undefined) data.duracao_min = dto.duracao_min;
+    if (dto.titulo !== undefined) data.titulo = dto.titulo;
     if (dto.link !== undefined) data.link = dto.link;
     if (dto.observacao !== undefined) data.observacao = dto.observacao;
     if (dto.aconteceu !== undefined) data.aconteceu = dto.aconteceu;

@@ -101,6 +101,12 @@ export class CreateReuniaoDto {
   @Max(720)
   duracao_min!: number;
 
+  @ApiPropertyOptional({ description: 'Free-text title (used by tipo=generica, e.g. "Viagem", "Formação")' })
+  @IsOptional()
+  @IsString()
+  @MaxLength(120)
+  titulo?: string;
+
   @ApiPropertyOptional()
   @IsOptional()
   @IsString()
@@ -118,7 +124,7 @@ export class CreateReuniaoDto {
   @IsBoolean()
   aconteceu?: boolean;
 
-  @ApiProperty({ type: [ReuniaoPessoaInputDto] })
+  @ApiProperty({ type: [ReuniaoPessoaInputDto], description: 'May be empty for tipo=generica' })
   @IsArray()
   @ValidateNested({ each: true })
   @Type(() => ReuniaoPessoaInputDto)

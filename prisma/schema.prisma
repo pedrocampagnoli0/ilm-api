@@ -465,6 +465,7 @@ model reuniao {
   tipo                        reuniao_tipo
   inicio                      DateTime                     @db.Timestamptz(6)
   duracao_min                 Int
+  titulo                      String?
   link                        String?
   observacao                  String?
   aconteceu                   Boolean                      @default(false)

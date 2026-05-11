@@ -36,6 +36,12 @@ export class UpdateReuniaoDto {
   @ApiPropertyOptional()
   @IsOptional()
   @IsString()
+  @MaxLength(120)
+  titulo?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
   @MaxLength(500)
   link?: string;
 

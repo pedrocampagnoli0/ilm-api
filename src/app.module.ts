@@ -23,6 +23,7 @@ import { TentativaContatoModule } from './tentativa-contato/tentativa-contato.mo
 import { FeriadoModule } from './feriado/feriado.module.js';
 import { ContatoPrincipalModule } from './contato-principal/contato-principal.module.js';
 import { AssessoraMunicipioModule } from './assessora-municipio/assessora-municipio.module.js';
+import { UsuarioImpersonatePermModule } from './usuario-impersonate-perm/usuario-impersonate-perm.module.js';
 
 @Module({
   imports: [
@@ -64,9 +65,8 @@ import { AssessoraMunicipioModule } from './assessora-municipio/assessora-munici
     FeriadoModule,
     ContatoPrincipalModule,
     AssessoraMunicipioModule,
+    UsuarioImpersonatePermModule,
   ],
-  providers: [
-    { provide: APP_GUARD, useClass: ThrottlerGuard },
-  ],
+  providers: [{ provide: APP_GUARD, useClass: ThrottlerGuard }],
 })
 export class AppModule {}

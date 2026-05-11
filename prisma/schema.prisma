@@ -461,7 +461,7 @@ model import_aluno_batch_item {
 
 model reuniao {
   id                          String                       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  municipio_id                String                       @db.Uuid
+  municipio_id                String?                      @db.Uuid
   tipo                        reuniao_tipo
   inicio                      DateTime                     @db.Timestamptz(6)
   duracao_min                 Int
@@ -478,7 +478,7 @@ model reuniao {
   created_at                  DateTime                     @default(now()) @db.Timestamptz(6)
   updated_at                  DateTime                     @default(now()) @updatedAt @db.Timestamptz(6)
 
-  municipio municipio        @relation(fields: [municipio_id], references: [id], onDelete: Cascade)
+  municipio municipio?       @relation(fields: [municipio_id], references: [id], onDelete: Cascade)
   criador   usuario?         @relation("reuniao_criado_por", fields: [criado_por], references: [id])
   pessoas   reuniao_pessoa[]
 

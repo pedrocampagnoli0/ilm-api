@@ -114,8 +114,21 @@ export class ReuniaoService {
   async create(user: AuthenticatedUser, dto: CreateReuniaoDto) {
     const ability = this.abilityFactory.createForUser(user);
 
-    // Authorize against the resource shape
-    if (!ability.can('create', subject('reuniao', { municipio_id: dto.municipio_id } as any))) {
+    // município is optional only for tipo=generica
+    if (dto.tipo !== 'generica' && !dto.municipio_id) {
+      throw new BadRequestException(
+        'O campo "municipio_id" é obrigatório para reuniões dos tipos 1:1-professor e gestao.',
+      );
+    }
+
+    // Authorize against the resource shape. For município-less generica events,
+    // the CASL rule matches when criado_por = user.id, so we pass it through.
+    if (
+      !ability.can(
+        'create',
+        subject('reuniao', { municipio_id: dto.municipio_id ?? null, criado_por: user.id } as any),
+      )
+    ) {
       throw new ForbiddenException('Você não tem permissão para criar reuniões neste município.');
     }
 
@@ -131,7 +144,7 @@ export class ReuniaoService {
     }
     const reuniao = await this.prisma.reuniao.create({
       data: {
-        municipio_id: dto.municipio_id,
+        municipio_id: dto.municipio_id ?? null,
         tipo: TIPO_DB_TO_PRISMA[dto.tipo] as any,
         inicio: new Date(dto.inicio),
         duracao_min: dto.duracao_min,
@@ -154,17 +167,22 @@ export class ReuniaoService {
     // Look up the município's IANA timezone so the wall-clock hora_inicio is
     // interpreted in the user's local zone, not the server's UTC. Without this
     // every "08:00" would land at 08:00 UTC = 05:00 BRT (the 3-hour offset bug).
-    const muni = await this.prisma.municipio.findUnique({
-      where: { id: dto.municipio_id },
-      select: { timezone: true },
-    });
+    // For município-less generica events (Viagem/Formação/Férias) fall back to
+    // America/Sao_Paulo — Brazil has no DST and all zones are GMT-3/-4, so it's
+    // a safe default for the assessora's recurring personal blocks.
+    const muni = dto.municipio_id
+      ? await this.prisma.municipio.findUnique({
+          where: { id: dto.municipio_id },
+          select: { timezone: true },
+        })
+      : null;
     const startsAtIso = expandRecurrence({
       diasSemana: rec.dias_semana,
       horaInicio: rec.hora_inicio,
       regra: rec.regra,
       ate: rec.ate,
       semanaDoMes: rec.semana_do_mes,
-      timezone: muni?.timezone ?? undefined,
+      timezone: muni?.timezone ?? 'America/Sao_Paulo',
     });
     if (startsAtIso.length === 0) {
       throw new BadRequestException(
@@ -177,7 +195,7 @@ export class ReuniaoService {
       startsAtIso.map((iso) =>
         this.prisma.reuniao.create({
           data: {
-            municipio_id: dto.municipio_id,
+            municipio_id: dto.municipio_id ?? null,
             tipo: TIPO_DB_TO_PRISMA[dto.tipo] as any,
             inicio: new Date(iso),
             duracao_min: dto.duracao_min,

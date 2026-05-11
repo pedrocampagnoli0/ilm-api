@@ -82,9 +82,10 @@ export class RecorrenciaInputDto {
 }
 
 export class CreateReuniaoDto {
-  @ApiProperty()
+  @ApiPropertyOptional({ description: 'Optional only when tipo=generica' })
+  @IsOptional()
   @IsUUID()
-  municipio_id!: string;
+  municipio_id?: string;
 
   @ApiProperty({ enum: ['1:1-professor', 'gestao', 'generica'] })
   @IsEnum(['1:1-professor', 'gestao', 'generica'])

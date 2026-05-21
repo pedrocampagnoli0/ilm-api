@@ -187,7 +187,19 @@ export class GlobalExceptionFilter implements ExceptionFilter {
           break;
       }
     } else if (exception instanceof Error) {
-      this.logger.error(exception.message, exception.stack);
+      // body-parser / http-errors raise plain Errors carrying a numeric
+      // `status` (e.g. PayloadTooLargeError → 413). Without this branch they
+      // fall through to a misleading 500.
+      const errWithStatus = exception as Error & { status?: unknown };
+      if (typeof errWithStatus.status === 'number' && errWithStatus.status >= 400 && errWithStatus.status < 600) {
+        status = errWithStatus.status;
+        message =
+          errWithStatus.status === HttpStatus.PAYLOAD_TOO_LARGE
+            ? 'Arquivo muito grande. Reduza o tamanho do lote e tente novamente.'
+            : exception.message;
+      } else {
+        this.logger.error(exception.message, exception.stack);
+      }
     }
 
     response.status(status).json({

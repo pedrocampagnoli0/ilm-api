@@ -68,6 +68,9 @@ export class AlunoService {
         filters.push({ turma_id: { in: idList } });
       }
     }
+    if (query.created_at_max) {
+      filters.push({ created_at: { lte: new Date(query.created_at_max) } });
+    }
 
     const where: Prisma.alunoWhereInput = { AND: filters };
 
@@ -110,6 +113,9 @@ export class AlunoService {
     if (query.turma_ids) {
       const idList = query.turma_ids.split(',').map((s) => s.trim()).filter(Boolean);
       if (idList.length > 0) filters.push({ turma_id: { in: idList } });
+    }
+    if (query.created_at_max) {
+      filters.push({ created_at: { lte: new Date(query.created_at_max) } });
     }
 
     const where: Prisma.alunoWhereInput = { AND: filters };

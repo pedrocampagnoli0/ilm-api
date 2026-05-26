@@ -1,4 +1,4 @@
-import { IsBoolean, IsOptional, IsString, IsUUID, MaxLength } from 'class-validator';
+import { IsBoolean, IsISO8601, IsOptional, IsString, IsUUID, MaxLength } from 'class-validator';
 import { Transform } from 'class-transformer';
 import { ApiPropertyOptional } from '@nestjs/swagger';
 import { PaginationQueryDto } from '../../common/dto/pagination-query.dto.js';
@@ -56,4 +56,9 @@ export class ListAlunosQueryDto extends PaginationQueryDto {
   @IsString()
   @MaxLength(8000)
   turma_ids?: string;
+
+  @ApiPropertyOptional({ description: 'Only alunos with created_at <= this ISO-8601 timestamp. Used to freeze stats for closed avaliações.' })
+  @IsOptional()
+  @IsISO8601()
+  created_at_max?: string;
 }

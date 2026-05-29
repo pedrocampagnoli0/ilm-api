@@ -23,6 +23,12 @@ const USUARIO_INCLUDE = {
   municipio: { select: { id: true, nome: true, uf_sigla: true } },
 } as const;
 
+function normalizeTelefone(value: string | null | undefined): string | null {
+  if (value == null) return null;
+  const digits = String(value).replace(/\D/g, '');
+  return digits.length > 0 ? digits : null;
+}
+
 @Injectable()
 export class UsuarioService {
   constructor(
@@ -168,6 +174,8 @@ export class UsuarioService {
       throw new ConflictException('Já existe um usuário com este e-mail');
     }
 
+    const telefone = normalizeTelefone(dto.telefone);
+
     const usuario = await this.prisma.usuario.create({
       data: {
         nome,
@@ -176,6 +184,7 @@ export class UsuarioService {
         municipio_id: dto.municipio_id ?? null,
         ativo: dto.ativo ?? true,
         tamanho_camiseta: dto.tamanho_camiseta ?? null,
+        telefone,
       },
       include: USUARIO_INCLUDE,
     });
@@ -218,6 +227,7 @@ export class UsuarioService {
     if ('municipio_id' in dto) data.municipio_id = dto.municipio_id ?? null;
     if (dto.ativo !== undefined) data.ativo = dto.ativo;
     if ('tamanho_camiseta' in dto) data.tamanho_camiseta = dto.tamanho_camiseta ?? null;
+    if ('telefone' in dto) data.telefone = normalizeTelefone(dto.telefone);
 
     const updated = await this.prisma.usuario.update({
       where: { id },

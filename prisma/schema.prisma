@@ -89,6 +89,7 @@ model usuario {
   municipio_id      String?            @db.Uuid
   ativo             Boolean            @default(true)
   tamanho_camiseta  tamanho_camiseta?
+  telefone          String?
   created_at        DateTime           @default(now()) @db.Timestamptz(6)
   updated_at        DateTime           @default(now()) @updatedAt @db.Timestamptz(6)
 

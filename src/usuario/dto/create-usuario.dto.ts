@@ -32,4 +32,10 @@ export class CreateUsuarioDto {
   @IsOptional()
   @IsEnum(['P', 'M', 'G', 'GG'], { message: 'tamanho_camiseta deve ser P, M, G ou GG' })
   tamanho_camiseta?: 'P' | 'M' | 'G' | 'GG' | null;
+
+  @ApiPropertyOptional({ example: '11912345678', description: 'WhatsApp/telefone com DDD. Apenas dígitos.' })
+  @IsOptional()
+  @IsString()
+  @MaxLength(20)
+  telefone?: string | null;
 }

@@ -53,17 +53,37 @@ export class EduzzSignatureGuard implements CanActivate {
     const providedBuf = Buffer.from(provided, 'utf8');
 
     for (const secret of secrets) {
-      const expected = createHmac('sha256', secret)
-        .update(req.rawBody)
-        .digest('hex');
-      const expectedBuf = Buffer.from(expected, 'utf8');
-      if (providedBuf.length !== expectedBuf.length) continue;
-      if (timingSafeEqual(providedBuf, expectedBuf)) {
-        return true;
+      for (const encoding of ['hex', 'base64'] as const) {
+        const expected = createHmac('sha256', secret)
+          .update(req.rawBody)
+          .digest(encoding);
+        const expectedBuf = Buffer.from(expected, 'utf8');
+        if (providedBuf.length !== expectedBuf.length) continue;
+        if (timingSafeEqual(providedBuf, expectedBuf)) {
+          return true;
+        }
       }
     }
 
-    this.logger.warn(`Bad Eduzz signature on ${req.method} ${req.originalUrl}`);
+    if (this.config.get<string>('EDUZZ_DEBUG_SIGNATURE') === 'true') {
+      const candidates = secrets.map((s, i) => ({
+        idx: i,
+        secretPreview: `${s.slice(0, 4)}…${s.slice(-4)}`,
+        hex: createHmac('sha256', s).update(req.rawBody!).digest('hex'),
+        base64: createHmac('sha256', s).update(req.rawBody!).digest('base64'),
+      }));
+      this.logger.warn(
+        `[DEBUG] Bad Eduzz signature.\n` +
+          `  received x-signature: ${provided}\n` +
+          `  body length: ${req.rawBody!.length}\n` +
+          `  body preview: ${req.rawBody!.subarray(0, 300).toString('utf8')}\n` +
+          `  candidates: ${JSON.stringify(candidates, null, 2)}`,
+      );
+    } else {
+      this.logger.warn(
+        `Bad Eduzz signature on ${req.method} ${req.originalUrl}`,
+      );
+    }
     throw new UnauthorizedException('Invalid signature');
   }
 }

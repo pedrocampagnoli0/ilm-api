@@ -16,9 +16,9 @@ type RawBodyRequest = Request & { rawBody?: Buffer };
  * HMAC-SHA256 guard for Eduzz webhooks.
  *
  * Eduzz signs the raw request body with one of N configured secrets and sends
- * the digest as `x-signature` (lowercase hex per PHP `hmac` convention).
- * We try each secret and accept if any matches via timingSafeEqual — supports
- * zero-downtime secret rotation.
+ * the digest as `x-signature`. Encoding isn't pinned in the docs — we try
+ * lowercase hex and standard base64 against every configured secret and
+ * accept on first match via timingSafeEqual. Supports zero-downtime rotation.
  */
 @Injectable()
 export class EduzzSignatureGuard implements CanActivate {
@@ -65,25 +65,7 @@ export class EduzzSignatureGuard implements CanActivate {
       }
     }
 
-    if (this.config.get<string>('EDUZZ_DEBUG_SIGNATURE') === 'true') {
-      const candidates = secrets.map((s, i) => ({
-        idx: i,
-        secretPreview: `${s.slice(0, 4)}…${s.slice(-4)}`,
-        hex: createHmac('sha256', s).update(req.rawBody!).digest('hex'),
-        base64: createHmac('sha256', s).update(req.rawBody!).digest('base64'),
-      }));
-      this.logger.warn(
-        `[DEBUG] Bad Eduzz signature.\n` +
-          `  received x-signature: ${provided}\n` +
-          `  body length: ${req.rawBody!.length}\n` +
-          `  body preview: ${req.rawBody!.subarray(0, 300).toString('utf8')}\n` +
-          `  candidates: ${JSON.stringify(candidates, null, 2)}`,
-      );
-    } else {
-      this.logger.warn(
-        `Bad Eduzz signature on ${req.method} ${req.originalUrl}`,
-      );
-    }
+    this.logger.warn(`Bad Eduzz signature on ${req.method} ${req.originalUrl}`);
     throw new UnauthorizedException('Invalid signature');
   }
 }

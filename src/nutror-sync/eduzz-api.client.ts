@@ -77,19 +77,24 @@ export class EduzzApiClient {
   }
 
   /**
-   * Iterate all students across all pages. itemsPerPage is capped at 50 by the API.
+   * Look up a single student by exact email match.
+   *
+   * The /students list endpoint has both a 50/page item cap AND a hidden
+   * page <= 50 cap (max 2,500 students reachable via plain pagination).
+   * We have 18k+ students, so we must query by email instead.
+   *
+   * Returns null when Eduzz has no student with that email.
    */
-  async *iterStudents(): AsyncGenerator<EduzzStudent> {
-    const itemsPerPage = 50;
-    let page = 1;
-    while (true) {
-      const res = await this.get<PaginatedResponse<EduzzStudent>>(
-        `/nutror/v1/students?page=${page}&itemsPerPage=${itemsPerPage}`,
-      );
-      for (const item of res.items) yield item;
-      if (page >= res.pages || res.items.length === 0) break;
-      page += 1;
-    }
+  async findStudentByEmail(email: string): Promise<EduzzStudent | null> {
+    const q = encodeURIComponent(email);
+    const res = await this.get<PaginatedResponse<EduzzStudent>>(
+      `/nutror/v1/students?email=${q}&itemsPerPage=1`,
+    );
+    if (!res.items || res.items.length === 0) return null;
+    const match = res.items.find(
+      (s) => (s.email || '').toLowerCase().trim() === email.toLowerCase().trim(),
+    );
+    return match ?? null;
   }
 
   async listEnrollments(studentId: string): Promise<EduzzEnrollment[]> {

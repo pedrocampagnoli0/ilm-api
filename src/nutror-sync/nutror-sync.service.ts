@@ -6,7 +6,7 @@ export interface SyncResult {
   startedAt: string;
   finishedAt: string;
   durationMs: number;
-  totalNutrorStudents: number;
+  emailsProbed: number;
   matchedStudents: number;
   enrollmentsFetched: number;
   enrollmentsUpserted: number;
@@ -38,7 +38,7 @@ export class NutrorSyncService {
     this.running = true;
     const startedAt = new Date();
     const errors: string[] = [];
-    let totalNutrorStudents = 0;
+    let emailsProbed = 0;
     let matchedStudents = 0;
     let enrollmentsFetched = 0;
     let enrollmentsUpserted = 0;
@@ -62,19 +62,28 @@ export class NutrorSyncService {
       });
       const cursoByHash = new Map<string, string>(cursos.map((c) => [c.course_hash, c.id]));
 
-      // Collect matched students by streaming the student list.
+      // Look up each of our active users on Nutror by email.
+      // /students plain pagination caps at page<=50 (max 2,500), so we can't walk
+      // the full 18k+ student list — must query per-email.
       const matched: Array<{ studentId: string; email: string; usuarioId: string }> = [];
-      for await (const student of this.eduzz.iterStudents()) {
-        totalNutrorStudents += 1;
-        const email = (student.email || '').toLowerCase().trim();
-        if (!email) continue;
-        const usuarioId = usuarioByEmail.get(email);
-        if (!usuarioId) continue;
-        matched.push({ studentId: student.id, email, usuarioId });
+      const allEmails = Array.from(usuarioByEmail.keys());
+      for (const email of allEmails) {
+        emailsProbed += 1;
+        try {
+          const student = await this.eduzz.findStudentByEmail(email);
+          if (!student) continue;
+          const usuarioId = usuarioByEmail.get(email);
+          if (!usuarioId) continue;
+          matched.push({ studentId: student.id, email, usuarioId });
+        } catch (e) {
+          const msg = `student lookup failed for ${email}: ${(e as Error).message}`;
+          this.logger.warn(msg);
+          errors.push(msg);
+        }
       }
       matchedStudents = matched.length;
       this.logger.log(
-        `Scanned ${totalNutrorStudents} Nutror students; ${matchedStudents} match an active usuario`,
+        `Probed ${allEmails.length} usuario emails on Nutror; ${matchedStudents} matched`,
       );
 
       // Fetch + upsert per matched student.
@@ -153,7 +162,7 @@ export class NutrorSyncService {
       startedAt: startedAt.toISOString(),
       finishedAt: finishedAt.toISOString(),
       durationMs: finishedAt.getTime() - startedAt.getTime(),
-      totalNutrorStudents,
+      emailsProbed,
       matchedStudents,
       enrollmentsFetched,
       enrollmentsUpserted,

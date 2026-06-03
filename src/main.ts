@@ -11,7 +11,16 @@ async function bootstrap() {
 
   // Bulk-import endpoints (escolas/turmas/alunos) send the entire spreadsheet
   // as a single JSON array, which easily exceeds Express's 100kb default.
-  app.use(json({ limit: '25mb' }));
+  // The `verify` callback stashes the raw bytes on req.rawBody so webhook
+  // routes can recompute HMAC signatures over the exact payload that was sent.
+  app.use(
+    json({
+      limit: '25mb',
+      verify: (req, _res, buf) => {
+        (req as unknown as { rawBody: Buffer }).rawBody = buf;
+      },
+    }),
+  );
   app.use(urlencoded({ extended: true, limit: '25mb' }));
 
   // Global prefix

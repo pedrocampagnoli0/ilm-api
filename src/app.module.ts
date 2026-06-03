@@ -24,6 +24,7 @@ import { FeriadoModule } from './feriado/feriado.module.js';
 import { ContatoPrincipalModule } from './contato-principal/contato-principal.module.js';
 import { AssessoraMunicipioModule } from './assessora-municipio/assessora-municipio.module.js';
 import { UsuarioImpersonatePermModule } from './usuario-impersonate-perm/usuario-impersonate-perm.module.js';
+import { WebhooksModule } from './webhooks/webhooks.module.js';
 
 @Module({
   imports: [
@@ -66,6 +67,7 @@ import { UsuarioImpersonatePermModule } from './usuario-impersonate-perm/usuario
     ContatoPrincipalModule,
     AssessoraMunicipioModule,
     UsuarioImpersonatePermModule,
+    WebhooksModule,
   ],
   providers: [{ provide: APP_GUARD, useClass: ThrottlerGuard }],
 })

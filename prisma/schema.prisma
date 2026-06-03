@@ -116,6 +116,63 @@ model usuario {
   assessora_municipios_created assessora_municipio[] @relation("assessora_creator")
   impersonate_perm       usuario_impersonate_perm?  @relation("impersonate_target")
   impersonate_perms_granted usuario_impersonate_perm[] @relation("impersonate_grantor")
+  nutror_conclusoes         nutror_modulo_conclusao[]
+}
+
+model eduzz_webhook_event {
+  id                String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  evento_externo_id String?   @unique
+  event_type        String
+  payload           Json      @db.JsonB
+  signature         String?
+  signature_valid   Boolean?
+  received_at       DateTime  @default(now()) @db.Timestamptz(6)
+  processed_at      DateTime? @db.Timestamptz(6)
+  processing_error  String?
+
+  conclusoes        nutror_modulo_conclusao[]
+
+  @@index([received_at(sort: Desc)], map: "idx_eduzz_webhook_event_received_at")
+  @@map("eduzz_webhook_event")
+}
+
+model nutror_curso {
+  id             String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  course_hash    String   @unique
+  titulo         String
+  modulos_totais Int?
+  ativo          Boolean  @default(true)
+  created_at     DateTime @default(now()) @db.Timestamptz(6)
+  updated_at     DateTime @default(now()) @updatedAt @db.Timestamptz(6)
+
+  conclusoes     nutror_modulo_conclusao[]
+
+  @@map("nutror_curso")
+}
+
+model nutror_modulo_conclusao {
+  id            String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  usuario_id    String?  @db.Uuid
+  learner_email String
+  learner_nome  String?
+  curso_id      String   @db.Uuid
+  module_id     String
+  module_titulo String?
+  lesson_id     String?
+  lesson_titulo String?
+  concluido_em  DateTime @db.Timestamptz(6)
+  evento_id     String?  @db.Uuid
+  created_at    DateTime @default(now()) @db.Timestamptz(6)
+
+  usuario usuario?             @relation(fields: [usuario_id], references: [id], onDelete: SetNull)
+  curso   nutror_curso         @relation(fields: [curso_id], references: [id], onDelete: Cascade)
+  evento  eduzz_webhook_event? @relation(fields: [evento_id], references: [id], onDelete: SetNull)
+
+  @@unique([learner_email, curso_id, module_id], name: "uq_nutror_conclusao", map: "uq_nutror_conclusao")
+  @@index([usuario_id, concluido_em(sort: Desc)], map: "idx_nutror_conclusao_usuario_concluido")
+  @@index([learner_email], map: "idx_nutror_conclusao_learner_email")
+  @@index([curso_id], map: "idx_nutror_conclusao_curso")
+  @@map("nutror_modulo_conclusao")
 }
 
 model escola {

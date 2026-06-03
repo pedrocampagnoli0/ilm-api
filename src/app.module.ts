@@ -25,9 +25,12 @@ import { ContatoPrincipalModule } from './contato-principal/contato-principal.mo
 import { AssessoraMunicipioModule } from './assessora-municipio/assessora-municipio.module.js';
 import { UsuarioImpersonatePermModule } from './usuario-impersonate-perm/usuario-impersonate-perm.module.js';
 import { WebhooksModule } from './webhooks/webhooks.module.js';
+import { NutrorSyncModule } from './nutror-sync/nutror-sync.module.js';
+import { ScheduleModule } from '@nestjs/schedule';
 
 @Module({
   imports: [
+    ScheduleModule.forRoot(),
     ConfigModule.forRoot({
       isGlobal: true,
       validate: (config: Record<string, string>) => {
@@ -68,6 +71,7 @@ import { WebhooksModule } from './webhooks/webhooks.module.js';
     AssessoraMunicipioModule,
     UsuarioImpersonatePermModule,
     WebhooksModule,
+    NutrorSyncModule,
   ],
   providers: [{ provide: APP_GUARD, useClass: ThrottlerGuard }],
 })

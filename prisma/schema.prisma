@@ -117,6 +117,7 @@ model usuario {
   impersonate_perm       usuario_impersonate_perm?  @relation("impersonate_target")
   impersonate_perms_granted usuario_impersonate_perm[] @relation("impersonate_grantor")
   nutror_conclusoes         nutror_modulo_conclusao[]
+  nutror_enrollments        nutror_enrollment[]
 }
 
 model eduzz_webhook_event {
@@ -146,8 +147,38 @@ model nutror_curso {
   updated_at     DateTime @default(now()) @updatedAt @db.Timestamptz(6)
 
   conclusoes     nutror_modulo_conclusao[]
+  enrollments    nutror_enrollment[]
 
   @@map("nutror_curso")
+}
+
+model nutror_enrollment {
+  id                    String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  learner_email         String
+  nutror_student_id     String
+  nutror_enrollment_id  String    @unique
+  course_hash           String
+  course_titulo         String?
+  curso_id              String?   @db.Uuid
+  usuario_id            String?   @db.Uuid
+  progress              Decimal   @db.Decimal(5, 2)
+  status                String
+  all_modules_released  Boolean?
+  matriculado_em        DateTime  @db.Timestamptz(6)
+  expira_em             DateTime? @db.Timestamptz(6)
+  termos_aceitos_em     DateTime? @db.Timestamptz(6)
+  last_synced_at        DateTime  @default(now()) @db.Timestamptz(6)
+  created_at            DateTime  @default(now()) @db.Timestamptz(6)
+  updated_at            DateTime  @default(now()) @updatedAt @db.Timestamptz(6)
+
+  curso   nutror_curso? @relation(fields: [curso_id], references: [id], onDelete: SetNull)
+  usuario usuario?      @relation(fields: [usuario_id], references: [id], onDelete: SetNull)
+
+  @@index([usuario_id], map: "idx_nutror_enrollment_usuario")
+  @@index([curso_id], map: "idx_nutror_enrollment_curso")
+  @@index([learner_email], map: "idx_nutror_enrollment_email")
+  @@index([course_hash], map: "idx_nutror_enrollment_course_hash")
+  @@map("nutror_enrollment")
 }
 
 model nutror_modulo_conclusao {

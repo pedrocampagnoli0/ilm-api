@@ -6,9 +6,11 @@ import {
   IsISO8601,
   IsOptional,
   IsString,
+  IsUUID,
   MaxLength,
   Min,
   Max,
+  ValidateIf,
   ValidateNested,
 } from 'class-validator';
 import { Type } from 'class-transformer';
@@ -16,6 +18,16 @@ import { ApiPropertyOptional } from '@nestjs/swagger';
 import { ReuniaoPessoaInputDto } from './create-reuniao.dto.js';
 
 export class UpdateReuniaoDto {
+  @ApiPropertyOptional({
+    description:
+      'Reassign the meeting to another município. Null clears it (only valid for tipo=generica).',
+    nullable: true,
+  })
+  @IsOptional()
+  @ValidateIf((o) => o.municipio_id !== null)
+  @IsUUID()
+  municipio_id?: string | null;
+
   @ApiPropertyOptional({ enum: ['1:1-professor', 'gestao', 'generica'] })
   @IsOptional()
   @IsEnum(['1:1-professor', 'gestao', 'generica'])

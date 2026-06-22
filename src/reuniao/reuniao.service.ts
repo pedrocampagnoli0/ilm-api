@@ -233,6 +233,24 @@ export class ReuniaoService {
       throw new ForbiddenException('Você não pode editar reuniões deste município.');
     }
 
+    // Reassigning to another município: enforce tipo invariant + permission on the target.
+    if (dto.municipio_id !== undefined && dto.municipio_id !== existing.municipio_id) {
+      const nextTipo = dto.tipo ?? TIPO_PRISMA_TO_DB[existing.tipo] ?? existing.tipo;
+      if (nextTipo !== 'generica' && !dto.municipio_id) {
+        throw new BadRequestException(
+          'O campo "municipio_id" é obrigatório para reuniões dos tipos 1:1-professor e gestao.',
+        );
+      }
+      if (
+        !ability.can(
+          'update',
+          subject('reuniao', { ...existing, municipio_id: dto.municipio_id } as any),
+        )
+      ) {
+        throw new ForbiddenException('Você não pode mover reuniões para este município.');
+      }
+    }
+
     if (scope === 'series') {
       if (!existing.serie_id) {
         throw new BadRequestException(
@@ -241,6 +259,7 @@ export class ReuniaoService {
       }
       // Series-scoped updates: only metadata fields (not inicio/duracao). Pessoas are replaced per-row.
       const data: Prisma.reuniaoUncheckedUpdateInput = {};
+      if (dto.municipio_id !== undefined) data.municipio_id = dto.municipio_id;
       if (dto.tipo !== undefined) data.tipo = TIPO_DB_TO_PRISMA[dto.tipo] as any;
       if (dto.titulo !== undefined) data.titulo = dto.titulo;
       if (dto.link !== undefined) data.link = dto.link;
@@ -278,6 +297,7 @@ export class ReuniaoService {
     }
 
     const data: Prisma.reuniaoUncheckedUpdateInput = {};
+    if (dto.municipio_id !== undefined) data.municipio_id = dto.municipio_id;
     if (dto.tipo !== undefined) data.tipo = TIPO_DB_TO_PRISMA[dto.tipo] as any;
     if (dto.inicio !== undefined) data.inicio = new Date(dto.inicio);
     if (dto.duracao_min !== undefined) data.duracao_min = dto.duracao_min;

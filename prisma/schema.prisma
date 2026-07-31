@@ -477,6 +477,7 @@ model import_batch {
   diretores_criados        Int       @default(0)
   diretores_existentes     Int       @default(0)
   erros                    Int       @default(0)
+  avisos                   Int       @default(0)
   undone_at                DateTime? @db.Timestamptz(6)
   created_at               DateTime  @default(now()) @db.Timestamptz(6)
 

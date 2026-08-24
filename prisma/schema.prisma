@@ -697,3 +697,126 @@ model contato_principal {
 
   @@index([municipio_id, ordem], map: "idx_contato_principal_municipio")
 }
+
+// ─── Formações presenciais (portal de eventos / PagBank) ─────────────────────
+// Schema em supabase/migrations/*_create_formacao_eventos_schema.sql (lermais-auth).
+// Prefixo `formacao_` porque `turma` já existe com outro significado (turma escolar).
+// Índices parciais (checkout_id único quando não nulo) vivem só no banco — o Prisma
+// não os modela.
+
+model formacao_evento {
+  id            String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  /// Permanente: liga o evento às vendas já registradas. Não renomear.
+  slug          String   @unique
+  cidade        String
+  data          DateTime @db.Date
+  local         String
+  endereco      String
+  como_chegar   String?
+  /// null = sem limite; nunca esgota sozinho.
+  vagas         Int?
+  /// Piso do selo: a contagem de vendas só pode apertá-lo. abertas|ultimas|esgotado
+  status_manual String?
+  publicado     Boolean  @default(false)
+  created_at    DateTime @default(now()) @db.Timestamptz(6)
+  updated_at    DateTime @default(now()) @updatedAt @db.Timestamptz(6)
+
+  lotes  formacao_lote[]
+  vendas formacao_venda[]
+
+  @@index([data], map: "idx_formacao_evento_data")
+  @@map("formacao_evento")
+}
+
+model formacao_lote {
+  id                 String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  evento_id          String    @db.Uuid
+  ordem              Int       @db.SmallInt
+  nome               String
+  preco_centavos     Int
+  /// Vira expiration_date no checkout do PagBank.
+  ate                DateTime  @db.Date
+  /// >1 é o pacote institucional: 1 link, N vagas, valor total em preco_centavos.
+  vagas_por_compra   Int       @default(1)
+  visivel_no_site    Boolean   @default(true)
+  /// CHEC_... do PagBank. null = link pag.ae legado criado à mão (não conta vaga).
+  checkout_id        String?
+  checkout_url       String?
+  /// sandbox|producao — um CHEC_ de sandbox não existe em produção.
+  checkout_ambiente  String?
+  checkout_criado_em DateTime? @db.Timestamptz(6)
+  created_at         DateTime  @default(now()) @db.Timestamptz(6)
+  updated_at         DateTime  @default(now()) @updatedAt @db.Timestamptz(6)
+
+  evento formacao_evento  @relation(fields: [evento_id], references: [id], onDelete: Cascade)
+  vendas formacao_venda[]
+
+  @@unique([evento_id, ordem])
+  @@index([evento_id], map: "idx_formacao_lote_evento")
+  @@map("formacao_lote")
+}
+
+model formacao_venda {
+  /// CHAR_... do PagBank. Para origem 'manual', 'manual:<uuid>'.
+  cobranca_id    String   @id
+  pedido_id      String?
+  /// Nulos em venda órfã (lookup do lote falhou): registrar é melhor que perder.
+  lote_id        String?  @db.Uuid
+  evento_id      String?  @db.Uuid
+  /// Congelado do lote na hora da venda; editar o lote depois não muda o passado.
+  vagas          Int      @default(1)
+  /// Já sem os juros de parcelamento somados pelo PagBank ao amount.value.
+  valor_centavos Int?
+  /// pagbank|manual|pagbank_legado (link pag.ae importado pela API v2)
+  origem         String   @default("pagbank")
+  /// sandbox|producao — toda contagem de vaga e receita filtra por 'producao'.
+  ambiente       String   @default("producao")
+  observacao     String?
+  /// confirmada|cancelada
+  status         String
+  created_at     DateTime @default(now()) @db.Timestamptz(6)
+  updated_at     DateTime @default(now()) @updatedAt @db.Timestamptz(6)
+
+  // Dados do pagamento — 24/08/2026, para o painel de insights.
+  /// Quando o pagamento aconteceu. Em venda importada difere de created_at, que é o
+  /// dia da importação: toda série temporal usa esta coluna.
+  pago_em          DateTime? @db.Timestamptz(6)
+  /// pix|credito|boleto|debito|saldo|outro
+  metodo_pagamento String?
+  /// Parcelas do cartão; null quando o método não parcela.
+  parcelas         Int?      @db.SmallInt
+  /// Taxa retida pelo PagBank. Líquido = valor_centavos - taxa_centavos.
+  taxa_centavos    Int?
+
+  // Dados do comprador — decisão de 24/08/2026, para a lista de inscritos do painel.
+  // Minimização: sem CPF, embora o PagBank o mande. Ver a migration
+  // 20260824040537_formacao_venda_dados_comprador.sql (finalidade e retenção).
+  /// customer.name da notificação.
+  comprador_nome      String?
+  /// customer.email — validado pelo PagBank.
+  comprador_email     String?
+  /// customer.phone/phones concatenado. MOBILE não garante WhatsApp.
+  comprador_celular   String?
+  /// customer.tax_id, só dígitos. Guardado para uso futuro (NFS-e), sem finalidade
+  /// hoje. NUNCA incluir em listagem — ler só sob finalidade declarada.
+  comprador_cpf       String?
+  /// Quando os dados pessoais foram anulados pelo expurgo.
+  dados_expurgados_em DateTime? @db.Timestamptz(6)
+
+  lote   formacao_lote?   @relation(fields: [lote_id], references: [id], onDelete: SetNull)
+  evento formacao_evento? @relation(fields: [evento_id], references: [id], onDelete: SetNull)
+
+  @@index([evento_id, status, ambiente], map: "idx_formacao_venda_evento_status")
+  @@index([lote_id], map: "idx_formacao_venda_lote")
+  @@map("formacao_venda")
+}
+
+model formacao_webhook_evento {
+  /// '<cobranca_id>:<status>' — o payload do PagBank não traz id de evento.
+  evento_id   String   @id
+  evento      String?
+  recebido_em DateTime @default(now()) @db.Timestamptz(6)
+
+  @@index([recebido_em], map: "idx_formacao_webhook_evento_recebido")
+  @@map("formacao_webhook_evento")
+}

@@ -98,6 +98,52 @@ export class PagbankLegadoService {
     return null;
   }
 
+  /**
+   * Garante que só uma máquina rode o ciclo.
+   *
+   * O `ilm-api` roda em duas máquinas no Fly, e cada uma tem seu próprio agendador: no
+   * primeiro ciclo real as duas dispararam juntas e bateram na API legada em dobro. Não
+   * chega a corromper nada — o upsert é idempotente —, mas é o dobro de requisições numa
+   * API lenta, e duas leituras concorrentes do mesmo link podem gravar a mesma venda
+   * duas vezes com valores diferentes se o status mudar no meio.
+   *
+   * A eleição é o próprio banco: quem consegue inserir a chave do ciclo, roda. `INSERT
+   * ... ON CONFLICT DO NOTHING` numa PK é atômico, não precisa de lock nem de sessão
+   * presa — que é o problema de `pg_advisory_lock` com pool de conexões.
+   *
+   * Reaproveita `formacao_webhook_evento`, a tabela de "isto já foi processado". São 48
+   * linhas por dia.
+   */
+  private async ganhouOCiclo(): Promise<boolean> {
+    const marca = new Date();
+    marca.setSeconds(0, 0);
+    marca.setMinutes(marca.getMinutes() < 30 ? 0 : 30);
+    const chave = `legado:ciclo:${marca.toISOString().slice(0, 16)}`;
+
+    const inseridos = await this.prisma.$executeRaw(Prisma.sql`
+      INSERT INTO public.formacao_webhook_evento (evento_id, evento)
+      VALUES (${chave}, 'sync-legado')
+      ON CONFLICT (evento_id) DO NOTHING
+    `);
+
+    return inseridos > 0;
+  }
+
+  /** Ciclo agendado: sai calado se outra máquina já pegou este. */
+  async sincronizarAgendado(): Promise<ResultadoSync> {
+    if (!(await this.ganhouOCiclo())) {
+      return {
+        executado: false,
+        motivo: 'outra máquina já está rodando este ciclo',
+        links: 0,
+        novas: 0,
+        atualizadas: 0,
+        detalhes: [],
+      };
+    }
+    return this.sincronizar();
+  }
+
   async sincronizar(): Promise<ResultadoSync> {
     const impedimento = this.impedimento();
     if (impedimento) {

@@ -68,8 +68,10 @@ export class PagbankLegadoClient {
 
     for (let tentativa = 1; tentativa <= 3; tentativa++) {
       try {
+        // Sem `Accept`. Não é descuido: `accept: application/xml` (e `text/xml`) faz esta
+        // API responder 406 Not Acceptable, embora o corpo que ela devolve seja XML.
+        // Verificado contra a conta real em 24/08/2026 — com `*/*` ou sem o header, 200.
         const resposta = await fetch(url, {
-          headers: { accept: 'application/xml' },
           signal: AbortSignal.timeout(TIMEOUT_MS),
         });
 

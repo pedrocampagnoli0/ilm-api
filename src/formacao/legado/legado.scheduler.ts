@@ -21,7 +21,7 @@ export class PagbankLegadoScheduler {
   @Cron('*/30 * * * *')
   async sincronizar() {
     try {
-      const r = await this.legado.sincronizar();
+      const r = await this.legado.sincronizarAgendado();
       if (!r.executado) {
         // Log de debug: em ambiente sem PagBank isso repetiria a cada 30 min por nada.
         this.logger.debug(`sync legado não executado — ${r.motivo}`);

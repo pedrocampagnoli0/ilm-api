@@ -177,7 +177,8 @@ describe('PublicoService', () => {
       const r = await service.status();
 
       expect(r.turmas).toEqual([
-        { slug: 'goiania-2026-10-03', status: 'ultimas' },
+        // 'automatico' diz só que o selo veio de capacidade, não quanto foi vendido.
+        { slug: 'goiania-2026-10-03', status: 'ultimas', automatico: true },
       ]);
       expect(JSON.stringify(r)).not.toMatch(/45|50/);
     });

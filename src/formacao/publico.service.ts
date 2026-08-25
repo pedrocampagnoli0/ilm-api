@@ -101,7 +101,9 @@ export class PublicoService {
    * Devolve apenas eventos com capacidade definida: sem `vagas`, o selo nunca muda
    * sozinho, e mandá-lo aqui só faria a página reescrever o que já veio do build.
    */
-  async status(): Promise<{ turmas: Array<{ slug: string; status: StatusFormacao }> }> {
+  async status(): Promise<{
+    turmas: Array<{ slug: string; status: StatusFormacao; automatico: boolean }>;
+  }> {
     const eventos = await this.prisma.formacao_evento.findMany({
       where: { publicado: true, vagas: { not: null } },
       // `data` entra no select porque o selo depende dela: turma realizada sai como
@@ -115,6 +117,11 @@ export class PublicoService {
       turmas: eventos.map((evento) => ({
         slug: evento.slug,
         status: statusDoEvento(evento, vendidas.get(evento.id) ?? 0),
+        // Diz ao site que este selo veio de capacidade e vendas reais, não do
+        // `status_manual` escrito à mão. Só com isso o site pode AFROUXAR um selo em
+        // runtime — sem o campo, ele mantém a trava de só apertar, porque não teria
+        // como distinguir "a turma reabriu" de "o portal respondeu errado".
+        automatico: evento.vagas !== null,
       })),
     };
   }

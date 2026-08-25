@@ -309,27 +309,46 @@ export class InsightsService {
 
   /** O que está errado agora e dá para consertar hoje. */
   private async alertas() {
-    const [orfas, semLink, semCapacidade, escadaQuebrada, suspeitos, realizadosVendendo] =
+    const [orfas, semLink, semCapacidade, lotesVencidos, suspeitos, realizadosVendendo] =
       await Promise.all([
+        // `origem <> 'manual'` porque lançamento manual NÃO tem lote por definição:
+        // ele é um total por turma, não uma compra. Sem isso, o backfill da planilha
+        // aparecia como sete "vendas órfãs" — alerta que ninguém consegue resolver.
         this.prisma.formacao_venda.count({
-          where: { status: 'confirmada', ambiente: 'producao', lote_id: null },
+          where: {
+            status: 'confirmada',
+            ambiente: 'producao',
+            lote_id: null,
+            origem: { not: 'manual' },
+          },
         }),
 
         this.prisma.formacao_lote.count({ where: { checkout_url: null, checkout_id: null } }),
 
         this.prisma.formacao_evento.count({ where: { publicado: true, vagas: null } }),
 
-        // Mais de um link vivo no mesmo evento: quem tiver o link antigo compra pelo
-        // preço antigo, e a escada de lotes deixa de existir na prática. Foi o que
-        // aconteceu em Goiânia — 44 vendas a R$100 depois que o lote 2 já valia R$130.
-        this.prisma.$queryRaw<Array<{ cidade: string; links: bigint }>>(Prisma.sql`
-          SELECT e.cidade, count(*) AS links
+        // Lote com prazo vencido e link ainda cadastrado.
+        //
+        // A primeira versão disto alertava "turma com mais de um link ao mesmo tempo",
+        // e acusava as seis turmas — porque cada lote tem seu link, e ter três lotes é
+        // o desenho normal. Alerta que dispara sempre não é alerta.
+        //
+        // O que de fato dói é o lote cuja data-limite passou e cujo link continua no
+        // ar: quem tem o endereço compra pelo preço antigo. Aconteceu em Goiânia — 44
+        // vendas a R$ 100 depois que o lote 2 já valia R$ 130. Link do painel não
+        // expira sozinho; o checkout criado pelo portal expira, porque leva
+        // `expiration_date`.
+        this.prisma.$queryRaw<
+          Array<{ cidade: string; lote: string; ate: Date; preco: number; legado: boolean }>
+        >(Prisma.sql`
+          SELECT e.cidade, l.nome AS lote, l.ate, l.preco_centavos AS preco,
+                 (l.checkout_id IS NULL) AS legado
           FROM public.formacao_lote l
           JOIN public.formacao_evento e ON e.id = l.evento_id
-          WHERE l.checkout_url IS NOT NULL AND e.data >= current_date
-          GROUP BY e.cidade
-          HAVING count(*) > 1
-          ORDER BY 2 DESC
+          WHERE l.checkout_url IS NOT NULL
+            AND l.ate < (now() AT TIME ZONE 'America/Sao_Paulo')::date
+            AND e.data >= (now() AT TIME ZONE 'America/Sao_Paulo')::date
+          ORDER BY l.ate
         `),
 
 
@@ -374,9 +393,12 @@ export class InsightsService {
       vendas_orfas: orfas,
       lotes_sem_link: semLink,
       eventos_publicados_sem_capacidade: semCapacidade,
-      escada_quebrada: escadaQuebrada.map((e) => ({
-        cidade: e.cidade,
-        links: Number(e.links),
+      lotes_vencidos: lotesVencidos.map((l) => ({
+        cidade: l.cidade,
+        lote: l.lote,
+        ate: new Date(l.ate).toISOString().slice(0, 10),
+        preco_centavos: Number(l.preco),
+        legado: l.legado,
       })),
       emails_suspeitos: suspeitos.map((s) => ({
         dominio: s.dominio,

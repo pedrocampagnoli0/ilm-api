@@ -309,7 +309,7 @@ export class InsightsService {
 
   /** O que está errado agora e dá para consertar hoje. */
   private async alertas() {
-    const [orfas, semLink, semCapacidade, escadaQuebrada, repetidos, suspeitos, realizadosVendendo] =
+    const [orfas, semLink, semCapacidade, escadaQuebrada, suspeitos, realizadosVendendo] =
       await Promise.all([
         this.prisma.formacao_venda.count({
           where: { status: 'confirmada', ambiente: 'producao', lote_id: null },
@@ -332,15 +332,6 @@ export class InsightsService {
           ORDER BY 2 DESC
         `),
 
-        this.prisma.$queryRaw<Array<{ email: string; compras: bigint }>>(Prisma.sql`
-          SELECT lower(comprador_email) AS email, count(*) AS compras
-          FROM public.formacao_venda
-          WHERE status = 'confirmada' AND ambiente = 'producao' AND comprador_email IS NOT NULL
-          GROUP BY 1
-          HAVING count(*) > 1
-          ORDER BY 2 DESC
-          LIMIT 20
-        `),
 
         // E-mail que o comprador digitou errado: domínio que se parece com um provedor
         // conhecido sem ser ele ("gmail.coml", "gmail.comil.com"). Enquanto o portal não
@@ -386,10 +377,6 @@ export class InsightsService {
       escada_quebrada: escadaQuebrada.map((e) => ({
         cidade: e.cidade,
         links: Number(e.links),
-      })),
-      compradores_repetidos: repetidos.map((r) => ({
-        email: r.email,
-        compras: Number(r.compras),
       })),
       emails_suspeitos: suspeitos.map((s) => ({
         dominio: s.dominio,

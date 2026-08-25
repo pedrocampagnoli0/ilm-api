@@ -105,9 +105,13 @@ export class InsightsService {
       SELECT e.id, e.cidade, e.data, e.vagas,
              sum(v.vagas)          FILTER (WHERE v.status = 'confirmada') AS vendidas,
              sum(v.valor_centavos) FILTER (WHERE v.status = 'confirmada') AS receita,
-             sum(v.vagas)          FILTER (WHERE v.status = 'confirmada'
+             -- Ritmo e "última venda" ignoram lançamento manual: ele entra com a data
+             -- da digitação e faria uma turma parada há meses parecer que vendeu hoje.
+             -- O total em "vendidas" inclui, porque essas vagas estão ocupadas de fato.
+             sum(v.vagas)          FILTER (WHERE v.status = 'confirmada' AND v.origem <> 'manual'
                                     AND coalesce(v.pago_em, v.created_at) >= now() - interval '28 days') AS recentes,
-             max(coalesce(v.pago_em, v.created_at)) FILTER (WHERE v.status = 'confirmada') AS ultima
+             max(coalesce(v.pago_em, v.created_at)) FILTER (WHERE v.status = 'confirmada'
+                                    AND v.origem <> 'manual') AS ultima
       FROM public.formacao_evento e
       LEFT JOIN public.formacao_venda v
              ON v.evento_id = e.id AND v.ambiente = 'producao'
@@ -141,7 +145,13 @@ export class InsightsService {
     });
   }
 
-  /** Vendas por semana nas últimas 16 — a curva que mostra aceleração e parada. */
+  /**
+   * Vendas por semana nas últimas 16 — a curva que mostra aceleração e parada.
+   *
+   * Exclui `origem = 'manual'`: lançamento manual é um total agregado, sem data de
+   * pagamento real. Ele cairia todo no dia em que foi digitado e desenharia um pico que
+   * nunca existiu — pior que não aparecer, porque parece informação.
+   */
   private async serie() {
     const linhas = await this.prisma.$queryRaw<
       Array<{ semana: Date; vendas: bigint | null; receita: bigint | null }>
@@ -150,7 +160,7 @@ export class InsightsService {
              sum(vagas)                                              AS vendas,
              sum(valor_centavos)                                     AS receita
       FROM public.formacao_venda
-      WHERE status = 'confirmada' AND ambiente = 'producao'
+      WHERE status = 'confirmada' AND ambiente = 'producao' AND origem <> 'manual'
         AND coalesce(pago_em, created_at) >= now() - interval '16 weeks'
       GROUP BY 1
       ORDER BY 1
@@ -169,6 +179,9 @@ export class InsightsService {
    * É o que responde "ainda dá tempo de encher esta turma?": se 90% das vendas de toda
    * turma acontecem com mais de 30 dias de antecedência, uma turma a 20 dias com metade
    * das vagas não enche mais — e o que resolve é preço ou divulgação, não esperar.
+   *
+   * Sem os lançamentos manuais, pelo mesmo motivo da série: eles não têm data de
+   * pagamento, e usar a data da digitação inventaria uma antecedência que não houve.
    */
   private async antecedencia() {
     const linhas = await this.prisma.$queryRaw<Array<{ faixa: string; vendas: bigint | null }>>(
@@ -189,6 +202,7 @@ export class InsightsService {
           FROM public.formacao_venda v
           JOIN public.formacao_evento e ON e.id = v.evento_id
           WHERE v.status = 'confirmada' AND v.ambiente = 'producao'
+            AND v.origem <> 'manual'
         ) t
         GROUP BY 1
       `,

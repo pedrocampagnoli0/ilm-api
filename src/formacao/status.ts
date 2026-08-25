@@ -44,19 +44,55 @@ export function aperta(a: StatusFormacao, b: StatusFormacao): StatusFormacao {
 }
 
 /**
+ * Hoje em São Paulo, como `YYYY-MM-DD`.
+ *
+ * O servidor roda em UTC. Entre 21h e 0h no Brasil já é o dia seguinte em UTC, e uma
+ * turma que acontece amanhã apareceria como realizada para quem abrisse a página à
+ * noite. O fuso é fixo em `America/Sao_Paulo` de propósito: quem lê é o site brasileiro,
+ * não o relógio da máquina.
+ */
+export function hojeBrasil(agora = new Date()): string {
+  return agora.toLocaleDateString('en-CA', { timeZone: 'America/Sao_Paulo' });
+}
+
+/**
+ * A turma já aconteceu?
+ *
+ * O evento vale o dia inteiro: só é "realizado" a partir do dia seguinte. Uma turma que
+ * acontece hoje continua vendendo — há inscrição na porta.
+ */
+export function eventoRealizado(
+  data: Date | string | null | undefined,
+  agora = new Date(),
+): boolean {
+  if (!data) return false;
+  const dia = typeof data === 'string' ? data.slice(0, 10) : data.toISOString().slice(0, 10);
+  return dia < hojeBrasil(agora);
+}
+
+/**
  * Status calculado a partir das vendas confirmadas.
  *
  * Com `vagas` preenchido — que é o caso obrigatório para eventos novos — o selo é
- * **sempre automático**: `status_manual` é ignorado.
+ * **sempre automático**: `status_manual` é ignorado. `vagas = null` só existe em evento
+ * legado; sem denominador, vale o `status_manual` para o selo não sumir da página.
  *
- * `vagas = null` só existe em evento legado, anterior à capacidade virar obrigatória.
- * Nesse caso não há denominador para o percentual, e vale o `status_manual` para o selo
- * não sumir da página enquanto a capacidade não for preenchida.
+ * **Turma realizada nunca anuncia vaga.** Sai como `esgotado`, que é o mais restritivo
+ * dos três, e não como um estado novo: `StatusFormacao` é contrato com o site, e um
+ * valor que ele não conhece cairia no fallback e reabriria a turma. O site já mostra
+ * "Inscrições encerradas" pela data; o que importa aqui é a API nunca dizer "abertas"
+ * para quem já passou.
+ *
+ * Isso apareceu de verdade em 24/08/2026: São Paulo, realizado em 08/08 com 268 de 280
+ * vagas, virou "últimas vagas" no site assim que a capacidade foi preenchida — 12 vagas
+ * livres, 4%, e a regra automática ignora o `status_manual`.
  */
 export function statusDoEvento(
-  evento: { status_manual: string | null; vagas: number | null },
+  evento: { status_manual: string | null; vagas: number | null; data?: Date | string | null },
   vendidas = 0,
 ): StatusFormacao {
+  if (eventoRealizado(evento.data)) return 'esgotado';
+
   if (evento.vagas === null || evento.vagas <= 0) {
     return isStatusFormacao(evento.status_manual) ? evento.status_manual : 'abertas';
   }

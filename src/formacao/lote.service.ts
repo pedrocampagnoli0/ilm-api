@@ -12,6 +12,7 @@ import type { CreateLoteDto } from './dto/create-lote.dto.js';
 import type { UpdateLoteDto } from './dto/update-lote.dto.js';
 import { PagbankService } from './pagbank/pagbank.service.js';
 import { serializarLote } from './datas.js';
+import { eventoRealizado } from './status.js';
 
 @Injectable()
 export class LoteService {
@@ -152,9 +153,18 @@ export class LoteService {
 
     const lote = await this.prisma.formacao_lote.findUnique({
       where: { id },
-      include: { evento: { select: { cidade: true, slug: true } } },
+      include: { evento: { select: { cidade: true, slug: true, data: true } } },
     });
     if (!lote) throw new NotFoundException('Lote não encontrado');
+
+    // Turma que já aconteceu não vende. Sem esta porta, um clique distraído cria um
+    // link vivo para uma data passada — e o PagBank aceita o pagamento normalmente,
+    // porque para ele é só uma cobrança.
+    if (eventoRealizado(lote.evento.data)) {
+      throw new ConflictException(
+        `A turma de ${lote.evento.cidade} aconteceu em ${lote.evento.data.toISOString().slice(0, 10)}. Não dá para criar link de pagamento para evento realizado.`,
+      );
+    }
 
     if (lote.checkout_id) {
       throw new ConflictException(

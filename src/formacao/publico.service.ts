@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service.js';
-import { statusDoEvento, type StatusFormacao } from './status.js';
+import { eventoRealizado, statusDoEvento, type StatusFormacao } from './status.js';
 import { soData } from './datas.js';
 
 /**
@@ -78,6 +78,9 @@ export class PublicoService {
         endereco: evento.endereco,
         comoChegar: evento.como_chegar,
         status: statusDoEvento(evento, vendidas.get(evento.id) ?? 0),
+        // Aditivo: o site já encerra turma pela data, no build e no navegador. Sai aqui
+        // para quem consome a API direto não precisar refazer a conta de fuso.
+        realizado: eventoRealizado(evento.data),
         lotes: evento.lotes
           // Sem link não há o que renderizar num card de compra. Lote invisível ou
           // ainda sem checkout criado simplesmente não existe para o site.
@@ -101,7 +104,9 @@ export class PublicoService {
   async status(): Promise<{ turmas: Array<{ slug: string; status: StatusFormacao }> }> {
     const eventos = await this.prisma.formacao_evento.findMany({
       where: { publicado: true, vagas: { not: null } },
-      select: { id: true, slug: true, vagas: true, status_manual: true },
+      // `data` entra no select porque o selo depende dela: turma realizada sai como
+      // esgotada mesmo com vaga sobrando.
+      select: { id: true, slug: true, vagas: true, status_manual: true, data: true },
     });
 
     const vendidas = await this.vendidasPorEvento(eventos.map((e) => e.id));

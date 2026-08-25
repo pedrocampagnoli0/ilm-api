@@ -83,7 +83,8 @@ describe('PublicoService', () => {
       expect(serializado).not.toMatch(/receita/);
       expect(serializado).not.toMatch(/preco_centavos/);
       expect(Object.keys(r.eventos[0])).toEqual([
-        'slug', 'cidade', 'data', 'local', 'endereco', 'comoChegar', 'status', 'lotes',
+        // 'realizado' é derivado só da data do evento — não é número de venda.
+        'slug', 'cidade', 'data', 'local', 'endereco', 'comoChegar', 'status', 'realizado', 'lotes',
       ]);
     });
 

@@ -11,7 +11,7 @@ import type { AuthenticatedUser } from '../common/auth/interfaces/authenticated-
 import type { CreateEventoDto } from './dto/create-evento.dto.js';
 import type { UpdateEventoDto } from './dto/update-evento.dto.js';
 import type { ListEventosQueryDto } from './dto/list-eventos-query.dto.js';
-import { statusDoEvento, vagasRestantes } from './status.js';
+import { eventoRealizado, statusDoEvento, vagasRestantes } from './status.js';
 import { serializarEvento } from './datas.js';
 
 /**
@@ -100,6 +100,7 @@ export class EventoService {
           receita_centavos: v.centavos,
           restantes: vagasRestantes(evento, v.vagas),
           status: statusDoEvento(evento, v.vagas),
+          realizado: eventoRealizado(evento.data),
           // O PagBank não recusa venda quando lota: a 51ª pessoa consegue pagar um
           // link de turma com 50 lugares. Sinalizar é o que o admin tem.
           excedente: evento.vagas !== null && v.vagas > evento.vagas,
@@ -126,6 +127,7 @@ export class EventoService {
       receita_centavos: v.centavos,
       restantes: vagasRestantes(evento, v.vagas),
       status: statusDoEvento(evento, v.vagas),
+      realizado: eventoRealizado(evento.data),
       excedente: evento.vagas !== null && v.vagas > evento.vagas,
     };
   }
@@ -241,7 +243,15 @@ export class EventoService {
 
     const evento = await this.prisma.formacao_evento.findUnique({
       where: { id },
-      select: { id: true, slug: true, cidade: true, vagas: true, status_manual: true },
+      // `data` entra porque o selo depende dela: turma realizada não anuncia vaga.
+      select: {
+        id: true,
+        slug: true,
+        cidade: true,
+        data: true,
+        vagas: true,
+        status_manual: true,
+      },
     });
     if (!evento) throw new NotFoundException('Evento não encontrado');
 
@@ -286,6 +296,7 @@ export class EventoService {
         vendidas,
         restantes: vagasRestantes(evento, vendidas),
         status: statusDoEvento(evento, vendidas),
+        realizado: eventoRealizado(evento.data),
       },
       totais: {
         confirmadas: confirmadas.length,

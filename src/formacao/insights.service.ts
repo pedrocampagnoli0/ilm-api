@@ -309,7 +309,7 @@ export class InsightsService {
 
   /** O que está errado agora e dá para consertar hoje. */
   private async alertas() {
-    const [orfas, semLink, semCapacidade, escadaQuebrada, repetidos, suspeitos] =
+    const [orfas, semLink, semCapacidade, escadaQuebrada, repetidos, suspeitos, realizadosVendendo] =
       await Promise.all([
         this.prisma.formacao_venda.count({
           where: { status: 'confirmada', ambiente: 'producao', lote_id: null },
@@ -363,6 +363,20 @@ export class InsightsService {
           ORDER BY 2 DESC
           LIMIT 20
         `),
+
+        // Turma que já aconteceu e continua com link de pagamento no ar. O PagBank não
+        // sabe que o evento passou: ele aceita o pagamento e a pessoa só descobre depois.
+        // Criar link novo para evento realizado agora é recusado pela API; o que sobra
+        // são os links que ficaram vivos de antes.
+        this.prisma.$queryRaw<Array<{ cidade: string; data: Date; links: bigint }>>(Prisma.sql`
+          SELECT e.cidade, e.data, count(*) AS links
+          FROM public.formacao_lote l
+          JOIN public.formacao_evento e ON e.id = l.evento_id
+          WHERE l.checkout_url IS NOT NULL
+            AND e.data < (now() AT TIME ZONE 'America/Sao_Paulo')::date
+          GROUP BY e.cidade, e.data
+          ORDER BY e.data DESC
+        `),
       ]);
 
     return {
@@ -380,6 +394,11 @@ export class InsightsService {
       emails_suspeitos: suspeitos.map((s) => ({
         dominio: s.dominio,
         quantos: Number(s.quantos),
+      })),
+      realizados_vendendo: realizadosVendendo.map((r) => ({
+        cidade: r.cidade,
+        data: new Date(r.data).toISOString().slice(0, 10),
+        links: Number(r.links),
       })),
     };
   }

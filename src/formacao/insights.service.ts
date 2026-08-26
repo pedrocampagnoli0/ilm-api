@@ -3,6 +3,7 @@ import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { AbilityFactory } from '../common/casl/ability.factory.js';
 import type { AuthenticatedUser } from '../common/auth/interfaces/authenticated-user.interface.js';
+import type { InsightsQueryDto } from './dto/insights-query.dto.js';
 
 /**
  * Números de venda das formações, para a aba de insights do painel.
@@ -18,6 +19,23 @@ import type { AuthenticatedUser } from '../common/auth/interfaces/authenticated-
  *    para venda importada isso é o dia da importação. Usar `created_at` numa série
  *    temporal mostraria centenas de vendas num único dia. `pago_em` é a data real.
  */
+
+/**
+ * Recorte de cortesia para as consultas de venda.
+ *
+ * Cortesia é inscrição de R$ 0: incluída, derruba o ticket médio e cria uma faixa de
+ * "R$ 0,00" no painel de preços; excluída, os números passam a medir só o que foi
+ * pago. Nenhum dos dois é o certo sempre — quem olha a tela decide, e este fragmento é
+ * o que cada consulta cola no WHERE.
+ *
+ * `alias` porque metade das consultas junta `formacao_venda` com outra tabela e
+ * precisa de `v.origem` em vez de `origem` solto.
+ */
+function recorteCortesia(incluir: boolean, alias = ''): Prisma.Sql {
+  if (incluir) return Prisma.empty;
+  const coluna = alias ? `${alias}.origem` : 'origem';
+  return Prisma.sql` AND ${Prisma.raw(coluna)} <> 'cortesia'`;
+}
 @Injectable()
 export class InsightsService {
   constructor(
@@ -32,24 +50,40 @@ export class InsightsService {
     }
   }
 
-  async gerar(user: AuthenticatedUser) {
+  async gerar(user: AuthenticatedUser, query: InsightsQueryDto = {}) {
     this.assertPode(user);
+
+    // Incluir é o padrão: cortesia é inscrição de verdade, e sumir com ela sem pedir
+    // seria esconder gente que está na sala.
+    const incluirCortesias = query.incluir_cortesias ?? true;
 
     const [resumo, turmas, serie, antecedencia, metodos, precos, alertas] =
       await Promise.all([
-        this.resumo(),
-        this.turmas(),
-        this.serie(),
-        this.antecedencia(),
-        this.metodos(),
-        this.precos(),
+        this.resumo(incluirCortesias),
+        this.turmas(incluirCortesias),
+        this.serie(incluirCortesias),
+        this.antecedencia(incluirCortesias),
+        this.metodos(incluirCortesias),
+        this.precos(incluirCortesias),
         this.alertas(),
       ]);
 
-    return { gerado_em: new Date().toISOString(), resumo, turmas, serie, antecedencia, metodos, precos, alertas };
+    return {
+      gerado_em: new Date().toISOString(),
+      // Volta para a tela para ela conseguir dizer qual base está mostrando: um número
+      // sem a base declarada é como o painel mentia antes.
+      incluir_cortesias: incluirCortesias,
+      resumo,
+      turmas,
+      serie,
+      antecedencia,
+      metodos,
+      precos,
+      alertas,
+    };
   }
 
-  private async resumo() {
+  private async resumo(incluirCortesias: boolean) {
     const [r] = await this.prisma.$queryRaw<
       Array<{
         inscricoes: bigint | null;
@@ -66,6 +100,7 @@ export class InsightsService {
              count(*)                               AS vendas
       FROM public.formacao_venda
       WHERE status = 'confirmada' AND ambiente = 'producao'
+      ${recorteCortesia(incluirCortesias)}
     `);
 
     const inscricoes = Number(r?.inscricoes ?? 0);
@@ -89,7 +124,7 @@ export class InsightsService {
    * data do evento. Não é previsão: é "se continuar assim, termina em tanto", que é o
    * suficiente para decidir capacidade e para enxergar turma que parou de vender.
    */
-  private async turmas() {
+  private async turmas(incluirCortesias: boolean) {
     const linhas = await this.prisma.$queryRaw<
       Array<{
         id: string;
@@ -103,15 +138,22 @@ export class InsightsService {
       }>
     >(Prisma.sql`
       SELECT e.id, e.cidade, e.data, e.vagas,
+             -- "vendidas" e "restantes" contam TUDO, cortesia inclusive, e o recorte
+             -- não se aplica aqui de propósito: são cadeiras ocupadas na sala, não
+             -- dinheiro. Esconder uma cortesia deste número anunciaria vaga livre que
+             -- não existe — erro pior que um ticket médio distorcido.
              sum(v.vagas)          FILTER (WHERE v.status = 'confirmada') AS vendidas,
              sum(v.valor_centavos) FILTER (WHERE v.status = 'confirmada') AS receita,
              -- Ritmo e "última venda" ignoram lançamento manual: ele entra com a data
              -- da digitação e faria uma turma parada há meses parecer que vendeu hoje.
-             -- O total em "vendidas" inclui, porque essas vagas estão ocupadas de fato.
+             -- Cortesia sai daqui junto quando o recorte está ligado: ela tem data
+             -- real, mas não é venda, e infla a projeção de quanto a turma ainda vende.
              sum(v.vagas)          FILTER (WHERE v.status = 'confirmada' AND v.origem <> 'manual'
+                                    ${recorteCortesia(incluirCortesias, 'v')}
                                     AND coalesce(v.pago_em, v.created_at) >= now() - interval '28 days') AS recentes,
              max(coalesce(v.pago_em, v.created_at)) FILTER (WHERE v.status = 'confirmada'
-                                    AND v.origem <> 'manual') AS ultima
+                                    AND v.origem <> 'manual'
+                                    ${recorteCortesia(incluirCortesias, 'v')}) AS ultima
       FROM public.formacao_evento e
       LEFT JOIN public.formacao_venda v
              ON v.evento_id = e.id AND v.ambiente = 'producao'
@@ -152,7 +194,7 @@ export class InsightsService {
    * pagamento real. Ele cairia todo no dia em que foi digitado e desenharia um pico que
    * nunca existiu — pior que não aparecer, porque parece informação.
    */
-  private async serie() {
+  private async serie(incluirCortesias: boolean) {
     const linhas = await this.prisma.$queryRaw<
       Array<{ semana: Date; vendas: bigint | null; receita: bigint | null }>
     >(Prisma.sql`
@@ -161,6 +203,7 @@ export class InsightsService {
              sum(valor_centavos)                                     AS receita
       FROM public.formacao_venda
       WHERE status = 'confirmada' AND ambiente = 'producao' AND origem <> 'manual'
+        ${recorteCortesia(incluirCortesias)}
         AND coalesce(pago_em, created_at) >= now() - interval '16 weeks'
       GROUP BY 1
       ORDER BY 1
@@ -183,7 +226,7 @@ export class InsightsService {
    * Sem os lançamentos manuais, pelo mesmo motivo da série: eles não têm data de
    * pagamento, e usar a data da digitação inventaria uma antecedência que não houve.
    */
-  private async antecedencia() {
+  private async antecedencia(incluirCortesias: boolean) {
     const linhas = await this.prisma.$queryRaw<Array<{ faixa: string; vendas: bigint | null }>>(
       Prisma.sql`
         SELECT CASE
@@ -203,6 +246,7 @@ export class InsightsService {
           JOIN public.formacao_evento e ON e.id = v.evento_id
           WHERE v.status = 'confirmada' AND v.ambiente = 'producao'
             AND v.origem <> 'manual'
+            ${recorteCortesia(incluirCortesias, 'v')}
         ) t
         GROUP BY 1
       `,
@@ -222,7 +266,7 @@ export class InsightsService {
    * pago some da conta como "cancelada", e a proporção disso decide se vale continuar
    * oferecendo boleto no checkout.
    */
-  private async metodos() {
+  private async metodos(incluirCortesias: boolean) {
     const linhas = await this.prisma.$queryRaw<
       Array<{
         metodo: string | null;
@@ -239,6 +283,7 @@ export class InsightsService {
              count(*)              FILTER (WHERE status = 'cancelada')  AS canceladas
       FROM public.formacao_venda
       WHERE ambiente = 'producao'
+      ${recorteCortesia(incluirCortesias)}
       GROUP BY 1
     `);
 
@@ -268,7 +313,7 @@ export class InsightsService {
    * aquele preço esteve vendendo — é o número que deixa comparável um lote que ficou
    * 90 dias no ar com outro que ficou 3.
    */
-  private async precos() {
+  private async precos(incluirCortesias: boolean) {
     const linhas = await this.prisma.$queryRaw<
       Array<{
         preco: number | null;
@@ -283,6 +328,7 @@ export class InsightsService {
              max(coalesce(pago_em, created_at)) AS ultima
       FROM public.formacao_venda
       WHERE status = 'confirmada' AND ambiente = 'producao' AND valor_centavos IS NOT NULL
+      ${recorteCortesia(incluirCortesias)}
       GROUP BY 1
       ORDER BY 1
     `);

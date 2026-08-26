@@ -15,6 +15,8 @@ import { JwtAuthGuard } from '../common/auth/guards/jwt-auth.guard.js';
 import { CurrentUser } from '../common/auth/decorators/current-user.decorator.js';
 import type { AuthenticatedUser } from '../common/auth/interfaces/authenticated-user.interface.js';
 import { EventoService } from './evento.service.js';
+import { InscricaoService } from './inscricao.service.js';
+import { CreateInscricaoDto } from './dto/create-inscricao.dto.js';
 import { CreateEventoDto } from './dto/create-evento.dto.js';
 import { UpdateEventoDto } from './dto/update-evento.dto.js';
 import { PublicarEventoDto } from './dto/publicar-evento.dto.js';
@@ -25,7 +27,10 @@ import { ListEventosQueryDto } from './dto/list-eventos-query.dto.js';
 @UseGuards(JwtAuthGuard)
 @Controller('admin/formacoes/eventos')
 export class EventoController {
-  constructor(private readonly eventoService: EventoService) {}
+  constructor(
+    private readonly eventoService: EventoService,
+    private readonly inscricaoService: InscricaoService,
+  ) {}
 
   @Get()
   @ApiOperation({
@@ -54,6 +59,31 @@ export class EventoController {
     @Param('id', ParseUUIDPipe) id: string,
   ) {
     return this.eventoService.vendas(user, id);
+  }
+
+  @Post(':id/inscricoes')
+  @ApiOperation({
+    summary:
+      'Lançar inscrição de cortesia (voucher, multiplicadora, parceria) — ocupa vaga, valor zero',
+  })
+  criarInscricao(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: CreateInscricaoDto,
+  ) {
+    return this.inscricaoService.create(user, id, dto);
+  }
+
+  @Delete(':id/inscricoes/:cobrancaId')
+  @ApiOperation({
+    summary: 'Apagar inscrição de cortesia lançada por engano (só cortesia)',
+  })
+  removerInscricao(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Param('cobrancaId') cobrancaId: string,
+  ) {
+    return this.inscricaoService.remove(user, id, cobrancaId);
   }
 
   @Post()

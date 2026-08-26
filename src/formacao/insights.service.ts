@@ -311,15 +311,16 @@ export class InsightsService {
   private async alertas() {
     const [orfas, semLink, semCapacidade, lotesVencidos, suspeitos, realizadosVendendo] =
       await Promise.all([
-        // `origem <> 'manual'` porque lançamento manual NÃO tem lote por definição:
-        // ele é um total por turma, não uma compra. Sem isso, o backfill da planilha
-        // aparecia como sete "vendas órfãs" — alerta que ninguém consegue resolver.
+        // 'manual' e 'cortesia' ficam de fora porque nenhuma das duas tem lote por
+        // definição: o backfill é um total por turma, e a cortesia não saiu de lote
+        // nenhum. Sem isso o backfill da planilha aparecia como sete "vendas órfãs" —
+        // alerta que ninguém consegue resolver.
         this.prisma.formacao_venda.count({
           where: {
             status: 'confirmada',
             ambiente: 'producao',
             lote_id: null,
-            origem: { not: 'manual' },
+            origem: { notIn: ['manual', 'cortesia'] },
           },
         }),
 

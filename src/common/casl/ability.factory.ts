@@ -398,11 +398,16 @@ function defineFormacaoRules(
   // leem receita), então o corte aqui é mais estreito que no resto da API: só
   // 'administrador'. Nem o perfil 'ilm' entra — ao contrário de feriado, reuniao e
   // contato_principal, onde ilm e administrador andam juntos.
-  // Vendas nunca são editáveis pela API administrativa: quem as escreve é o webhook.
+  // Venda paga nunca é editável pela API administrativa: quem a escreve é o webhook.
+  // O 'create'/'delete' em formacao_venda existe só para a inscrição de cortesia
+  // (origem='cortesia'), que nasce digitada no painel — o InscricaoService recusa
+  // apagar qualquer linha de outra origem.
   if (user.perfil === 'administrador') {
     can('manage', 'formacao_evento');
     can('manage', 'formacao_lote');
     can('read', 'formacao_venda');
+    can('create', 'formacao_venda');
+    can('delete', 'formacao_venda');
     return;
   }
 

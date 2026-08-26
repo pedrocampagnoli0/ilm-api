@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { CaslModule } from '../common/casl/casl.module.js';
 import { EventoController } from './evento.controller.js';
 import { EventoService } from './evento.service.js';
+import { InscricaoService } from './inscricao.service.js';
 import { LoteController } from './lote.controller.js';
 import { LoteService } from './lote.service.js';
 import { PublicoController } from './publico.controller.js';
@@ -40,6 +41,7 @@ import { PagbankLegadoScheduler } from './legado/legado.scheduler.js';
   ],
   providers: [
     EventoService,
+    InscricaoService,
     LoteService,
     PublicoService,
     InsightsService,

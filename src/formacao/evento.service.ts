@@ -276,11 +276,16 @@ export class EventoService {
         status: true,
         created_at: true,
         updated_at: true,
+        // Para o Excel de inscritos: `created_at` é quando a linha foi gravada, que em
+        // venda importada é o dia da importação. Quem confere a lista quer a data real.
+        pago_em: true,
+        metodo_pagamento: true,
         comprador_nome: true,
         comprador_email: true,
         comprador_celular: true,
         comprador_cpf: true,
         dados_expurgados_em: true,
+        gratuidade_origem: true,
         lote: { select: { id: true, nome: true, ordem: true } },
       },
     });

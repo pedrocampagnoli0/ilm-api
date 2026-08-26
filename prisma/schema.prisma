@@ -767,7 +767,10 @@ model formacao_venda {
   vagas          Int      @default(1)
   /// Já sem os juros de parcelamento somados pelo PagBank ao amount.value.
   valor_centavos Int?
-  /// pagbank|manual|pagbank_legado (link pag.ae importado pela API v2)
+  /// pagbank|manual|pagbank_legado (link pag.ae importado pela API v2)|cortesia
+  /// 'manual' é backfill agregado de planilha; 'cortesia' é uma pessoa lançada à mão
+  /// no painel. Os insights tratam as duas de formas diferentes — ver a migration
+  /// 20260826120000_formacao_venda_cortesia.sql.
   origem         String   @default("pagbank")
   /// sandbox|producao — toda contagem de vaga e receita filtra por 'producao'.
   ambiente       String   @default("producao")
@@ -802,6 +805,11 @@ model formacao_venda {
   comprador_cpf       String?
   /// Quando os dados pessoais foram anulados pelo expurgo.
   dados_expurgados_em DateTime? @db.Timestamptz(6)
+
+  /// voucher|multiplicadora|parceria|equipe|outro — por que não pagou. Obrigatório em
+  /// origem='cortesia', nulo nas demais (CHECK no banco). O detalhe livre vai em
+  /// observacao.
+  gratuidade_origem   String?
 
   lote   formacao_lote?   @relation(fields: [lote_id], references: [id], onDelete: SetNull)
   evento formacao_evento? @relation(fields: [evento_id], references: [id], onDelete: SetNull)

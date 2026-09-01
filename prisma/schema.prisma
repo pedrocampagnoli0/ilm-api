@@ -58,6 +58,7 @@ model municipio {
   uf_sigla            String    @db.VarChar(2)
   ativo               Boolean   @default(true)
   logo_municipio_url  String?
+  historico           String?
   timezone            String    @default("America/Araguaina")
   created_at          DateTime  @default(now()) @db.Timestamptz(6)
   updated_at          DateTime  @default(now()) @updatedAt @db.Timestamptz(6)

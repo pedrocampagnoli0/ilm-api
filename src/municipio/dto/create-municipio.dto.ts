@@ -26,4 +26,13 @@ export class CreateMunicipioDto {
   @IsUrl({ require_tld: true, protocols: ['https'] })
   @MaxLength(500)
   logo_municipio_url?: string;
+
+  @ApiPropertyOptional({
+    description:
+      'Histórico do município — anotações permanentes, mantidas entre anos letivos',
+  })
+  @IsOptional()
+  @IsString()
+  @MaxLength(5000)
+  historico?: string | null;
 }

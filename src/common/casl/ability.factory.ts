@@ -15,6 +15,9 @@ import type {
   tentativa_contato as TentativaContato,
   feriado as Feriado,
   contato_principal as ContatoPrincipal,
+  formacao_evento as FormacaoEvento,
+  formacao_lote as FormacaoLote,
+  formacao_venda as FormacaoVenda,
 } from '@prisma/client';
 import { Injectable } from '@nestjs/common';
 import type { AuthenticatedUser } from '../auth/interfaces/authenticated-user.interface.js';
@@ -31,6 +34,9 @@ type AppSubjects =
       tentativa_contato: TentativaContato;
       feriado: Feriado;
       contato_principal: ContatoPrincipal;
+      formacao_evento: FormacaoEvento;
+      formacao_lote: FormacaoLote;
+      formacao_venda: FormacaoVenda;
     }>
   | 'all';
 
@@ -383,6 +389,33 @@ function defineContatoPrincipalRules(
   }
 }
 
+function defineFormacaoRules(
+  can: Can,
+  cannot: Cannot,
+  user: AuthenticatedUser,
+) {
+  // Formações presenciais movimentam dinheiro (criam link de cobrança, mudam preço,
+  // leem receita), então o corte aqui é mais estreito que no resto da API: só
+  // 'administrador'. Nem o perfil 'ilm' entra — ao contrário de feriado, reuniao e
+  // contato_principal, onde ilm e administrador andam juntos.
+  // Venda paga nunca é editável pela API administrativa: quem a escreve é o webhook.
+  // O 'create'/'delete' em formacao_venda existe só para a inscrição de cortesia
+  // (origem='cortesia'), que nasce digitada no painel — o InscricaoService recusa
+  // apagar qualquer linha de outra origem.
+  if (user.perfil === 'administrador') {
+    can('manage', 'formacao_evento');
+    can('manage', 'formacao_lote');
+    can('read', 'formacao_venda');
+    can('create', 'formacao_venda');
+    can('delete', 'formacao_venda');
+    return;
+  }
+
+  cannot('manage', 'formacao_evento');
+  cannot('manage', 'formacao_lote');
+  cannot('manage', 'formacao_venda');
+}
+
 // ─── Factory ────────────────────────────────────────────
 
 @Injectable()
@@ -411,6 +444,7 @@ export class AbilityFactory {
     defineTentativaContatoRules(can, cannot, user);
     defineFeriadoRules(can, cannot, user);
     defineContatoPrincipalRules(can, cannot, user);
+    defineFormacaoRules(can, cannot, user);
 
     const ability = build();
 

@@ -1,4 +1,5 @@
 import {
+  ConflictException,
   ForbiddenException,
   Injectable,
   NotFoundException,
@@ -36,6 +37,26 @@ export class AvaliacaoService {
     private readonly prisma: PrismaService,
     private readonly abilityFactory: AbilityFactory,
   ) {}
+
+  /** Um município só pode ter uma avaliação aberta por vez. O trigger
+   *  `avaliacao_unica_ativa` no Postgres é a garantia real; esta checagem existe
+   *  para devolver 409 com uma mensagem útil em vez de um erro cru do banco. */
+  private async assertNenhumaOutraAtiva(municipioId: string, ignorarId?: string) {
+    const conflito = await this.prisma.avaliacao.findFirst({
+      where: {
+        municipio_id: municipioId,
+        ativo: true,
+        ...(ignorarId ? { id: { not: ignorarId } } : {}),
+      },
+      include: { tipo_avaliacao: { select: { nome: true } } },
+      orderBy: { data_inicio: 'desc' },
+    });
+    if (conflito) {
+      throw new ConflictException(
+        `Este município já tem uma avaliação ativa (${conflito.tipo_avaliacao?.nome ?? 'outra avaliação'}). Encerre-a antes de ativar outra.`,
+      );
+    }
+  }
 
   async findAll(user: AuthenticatedUser, query: ListAvaliacoesQueryDto) {
     const ability = this.abilityFactory.createForUser(user);
@@ -120,6 +141,10 @@ export class AvaliacaoService {
       throw new ForbiddenException('Acesso negado');
     }
 
+    if (dto.ativo ?? true) {
+      await this.assertNenhumaOutraAtiva(dto.municipio_id);
+    }
+
     const avaliacao = await this.prisma.avaliacao.create({
       data: {
         municipio_id: dto.municipio_id,
@@ -150,6 +175,18 @@ export class AvaliacaoService {
     if (dto.data_inicio !== undefined) data.data_inicio = dto.data_inicio ? new Date(dto.data_inicio) : null;
     if (dto.data_termino !== undefined) data.data_termino = dto.data_termino ? new Date(dto.data_termino) : null;
     if (dto.ativo !== undefined) data.ativo = dto.ativo;
+
+    // Só valida quando a avaliação está *entrando* no estado ativo (ou mudando de
+    // município enquanto ativa) — salvar uma avaliação que já estava ativa não pode
+    // travar, senão os casos legados com duas ativas ficariam ineditáveis.
+    const municipioFinal = (data.municipio_id as string) ?? existing.municipio_id;
+    const ativoFinal = data.ativo === undefined ? existing.ativo : (data.ativo as boolean);
+    const entrandoEmAtivo =
+      ativoFinal === true &&
+      (existing.ativo !== true || municipioFinal !== existing.municipio_id);
+    if (entrandoEmAtivo) {
+      await this.assertNenhumaOutraAtiva(municipioFinal, id);
+    }
 
     const updated = await this.prisma.avaliacao.update({
       where: { id },

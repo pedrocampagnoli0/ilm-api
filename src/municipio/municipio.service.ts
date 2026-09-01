@@ -120,6 +120,7 @@ export class MunicipioService {
         uf_sigla,
         ativo: dto.ativo ?? true,
         logo_municipio_url: dto.logo_municipio_url ?? null,
+        historico: dto.historico ?? null,
       },
     });
 
@@ -143,6 +144,7 @@ export class MunicipioService {
     if (dto.uf_sigla) data.uf_sigla = dto.uf_sigla.toUpperCase();
     if (dto.ativo !== undefined) data.ativo = dto.ativo;
     if ('logo_municipio_url' in dto) data.logo_municipio_url = dto.logo_municipio_url ?? null;
+    if ('historico' in dto) data.historico = dto.historico ?? null;
 
     // Check duplicate name if nome or uf changed
     if (dto.nome || dto.uf_sigla) {

@@ -192,6 +192,16 @@ describe('EventoService', () => {
       });
     });
 
+    it('não conta venda de sandbox: evento de teste tem que sair do painel', async () => {
+      await service.remove(makeUser('administrador'), 'e-1');
+
+      const [args] = prisma.formacao_venda.count.mock.calls[0];
+      expect(args.where).toEqual({
+        evento_id: 'e-1',
+        ambiente: { not: 'sandbox' },
+      });
+    });
+
     it('404 em evento inexistente', async () => {
       prisma.formacao_evento.findUnique.mockResolvedValue(null);
 

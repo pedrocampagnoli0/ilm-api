@@ -4,6 +4,7 @@ import { LoteService } from './lote.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { AbilityFactory } from '../common/casl/ability.factory';
 import { PagbankService } from './pagbank/pagbank.service';
+import { CheckoutLogService } from './checkout-log.service';
 import type { AuthenticatedUser } from '../common/auth/interfaces/authenticated-user.interface';
 
 function makeUser(perfil: string): AuthenticatedUser {
@@ -37,6 +38,8 @@ const loteLegado = {
   checkout_criado_em: null,
   created_at: new Date(),
   updated_at: new Date(),
+  // O serviço lê estes campos para desnormalizar a auditoria de checkout.
+  evento: { slug: 'goiania-2026-10-03', cidade: 'Goiânia – GO', data: new Date('2027-10-03') },
 };
 
 /** Lote com checkout criado pela API: preço e prazo estão congelados no PagBank. */
@@ -68,6 +71,7 @@ describe('LoteService', () => {
     criarCheckout: jest.Mock;
     inativar: jest.Mock;
   };
+  let checkoutLog: { registrar: jest.Mock; listar: jest.Mock };
   const admin = makeUser('administrador');
 
   beforeEach(async () => {
@@ -79,15 +83,66 @@ describe('LoteService', () => {
         .mockResolvedValue({ id: 'CHEC_NOVO', url: 'https://pagseguro/pay?code=x' }),
       inativar: jest.fn().mockResolvedValue(undefined),
     };
+    checkoutLog = {
+      registrar: jest.fn().mockResolvedValue(undefined),
+      listar: jest.fn().mockResolvedValue({ data: [], total: 0 }),
+    };
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         LoteService,
         AbilityFactory,
         { provide: PrismaService, useValue: prisma },
         { provide: PagbankService, useValue: pagbank },
+        { provide: CheckoutLogService, useValue: checkoutLog },
       ],
     }).compile();
     service = module.get<LoteService>(LoteService);
+  });
+
+  describe('auditoria de checkout', () => {
+    it('registra a criação com o administrador que clicou', async () => {
+      prisma.formacao_lote.findUnique.mockResolvedValue(loteLegado);
+
+      await service.criarCheckout(admin, 'l-1');
+
+      expect(checkoutLog.registrar).toHaveBeenCalledWith(
+        expect.objectContaining({
+          acao: 'criado',
+          motivo: 'manual',
+          atorUsuarioId: 'administrador-id',
+          checkoutId: 'CHEC_NOVO',
+        }),
+      );
+    });
+
+    it('registra a inativação manual com o link que foi derrubado', async () => {
+      prisma.formacao_lote.findUnique.mockResolvedValue(loteComCheckout);
+
+      await service.inativarCheckout(admin, 'l-1');
+
+      expect(checkoutLog.registrar).toHaveBeenCalledWith(
+        expect.objectContaining({
+          acao: 'inativado',
+          motivo: 'manual',
+          atorUsuarioId: 'administrador-id',
+          // Depois do update o lote não sabe mais qual link era: o log é a única cópia.
+          checkoutId: 'CHEC_ABC123',
+        }),
+      );
+    });
+
+    it('registra a tentativa quando o PagBank recusa, e propaga o erro', async () => {
+      prisma.formacao_lote.findUnique.mockResolvedValue(loteComCheckout);
+      pagbank.inativar.mockRejectedValue(new Error('PagBank fora'));
+
+      await expect(service.inativarCheckout(admin, 'l-1')).rejects.toThrow('PagBank fora');
+
+      expect(checkoutLog.registrar).toHaveBeenCalledWith(
+        expect.objectContaining({ acao: 'inativado', erro: 'PagBank fora' }),
+      );
+      // Não limpou o lote: o link continua lá, e o log diz por quê.
+      expect(prisma.formacao_lote.update).not.toHaveBeenCalled();
+    });
   });
 
   describe('autorização', () => {

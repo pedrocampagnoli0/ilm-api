@@ -757,6 +757,38 @@ model formacao_lote {
   @@map("formacao_lote")
 }
 
+/// Auditoria de criação/inativação de checkout do PagBank. Append-only.
+///
+/// Sem relation fields de propósito: o log precisa sobreviver ao delete do evento
+/// (que leva os lotes por cascade), então os ponteiros são SET NULL no banco e o que
+/// vale para leitura são os campos desnormalizados.
+model formacao_checkout_log {
+  id                String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  lote_id           String?  @db.Uuid
+  evento_id         String?  @db.Uuid
+  evento_slug       String
+  evento_cidade     String
+  lote_nome         String
+  /// criado | inativado
+  acao              String
+  /// manual = clique no painel; lotou = inativação automática por capacidade.
+  motivo            String
+  /// null = o próprio sistema.
+  ator_usuario_id   String?  @db.Uuid
+  checkout_id       String?
+  checkout_url      String?
+  checkout_ambiente String?
+  vendidas          Int?
+  vagas             Int?
+  /// Preenchido quando o PagBank recusou: o link pode ter continuado vendendo.
+  erro              String?
+  created_at        DateTime @default(now()) @db.Timestamptz(6)
+
+  @@index([evento_id, created_at(sort: Desc)], map: "idx_formacao_checkout_log_evento")
+  @@index([lote_id, created_at(sort: Desc)], map: "idx_formacao_checkout_log_lote")
+  @@map("formacao_checkout_log")
+}
+
 model formacao_venda {
   /// CHAR_... do PagBank. Para origem 'manual', 'manual:<uuid>'.
   cobranca_id    String   @id

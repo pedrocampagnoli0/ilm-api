@@ -2,6 +2,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service.js';
 import { PagbankService } from './pagbank.service.js';
+import { CheckoutLogService } from '../checkout-log.service.js';
 import {
   extrairCelular,
   extrairCpf,
@@ -32,6 +33,7 @@ export class WebhookService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly pagbank: PagbankService,
+    private readonly checkoutLog: CheckoutLogService,
   ) {}
 
   /**
@@ -238,7 +240,7 @@ export class WebhookService {
     try {
       const evento = await this.prisma.formacao_evento.findUnique({
         where: { id: eventoId },
-        select: { vagas: true, slug: true },
+        select: { vagas: true, slug: true, cidade: true },
       });
       if (!evento?.vagas) return; // sem capacidade definida, nunca esgota sozinho
 
@@ -251,7 +253,13 @@ export class WebhookService {
 
       const lotes = await this.prisma.formacao_lote.findMany({
         where: { evento_id: eventoId, checkout_id: { not: null } },
-        select: { id: true, checkout_id: true, nome: true },
+        select: {
+          id: true,
+          checkout_id: true,
+          checkout_url: true,
+          checkout_ambiente: true,
+          nome: true,
+        },
       });
       if (lotes.length === 0) return;
 
@@ -260,16 +268,40 @@ export class WebhookService {
       );
 
       for (const lote of lotes) {
+        // Estado de antes: depois do update ninguém mais sabe qual link foi derrubado.
+        const registro = {
+          loteId: lote.id,
+          eventoId,
+          eventoSlug: evento.slug,
+          eventoCidade: evento.cidade,
+          loteNome: lote.nome,
+          acao: 'inativado' as const,
+          motivo: 'lotou' as const,
+          atorUsuarioId: null,
+          checkoutId: lote.checkout_id,
+          checkoutUrl: lote.checkout_url,
+          checkoutAmbiente: lote.checkout_ambiente,
+          vendidas,
+          vagas: evento.vagas,
+        };
+
         try {
           await this.pagbank.inativar(lote.checkout_id as string);
           await this.prisma.formacao_lote.update({
             where: { id: lote.id },
             data: { checkout_id: null, checkout_url: null, checkout_ambiente: null },
           });
+          await this.checkoutLog.registrar(registro);
         } catch (e) {
           this.logger.error(
             `falha ao inativar o checkout do lote "${lote.nome}": ${(e as Error).message}`,
           );
+          // O logger some com a retenção do Fly. Esta linha é o que sobra para
+          // descobrir que a turma lotou e o link continuou de pé.
+          await this.checkoutLog.registrar({
+            ...registro,
+            erro: (e as Error).message,
+          });
         }
       }
     } catch (e) {

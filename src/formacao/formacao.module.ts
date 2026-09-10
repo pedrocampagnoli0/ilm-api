@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { CaslModule } from '../common/casl/casl.module.js';
+import { CheckoutLogService } from './checkout-log.service.js';
 import { EventoController } from './evento.controller.js';
 import { EventoService } from './evento.service.js';
 import { InscricaoService } from './inscricao.service.js';
@@ -40,6 +41,7 @@ import { PagbankLegadoScheduler } from './legado/legado.scheduler.js';
     WebhookController,
   ],
   providers: [
+    CheckoutLogService,
     EventoService,
     InscricaoService,
     LoteService,

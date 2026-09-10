@@ -2,6 +2,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { ConfigService } from '@nestjs/config';
 import { WebhookService } from './webhook.service';
 import { PagbankService } from './pagbank.service';
+import { CheckoutLogService } from '../checkout-log.service';
 import { PrismaService } from '../../prisma/prisma.service';
 
 const LOTE_ID = '98bdcb77-59be-4ace-9796-2465fc09720d';
@@ -62,16 +63,19 @@ describe('WebhookService', () => {
   let service: WebhookService;
   let prisma: ReturnType<typeof createMockPrisma>;
   let pagbank: { ambiente: string; inativar: jest.Mock };
+  let checkoutLog: { registrar: jest.Mock };
 
   beforeEach(async () => {
     prisma = createMockPrisma();
     pagbank = { ambiente: 'sandbox', inativar: jest.fn().mockResolvedValue(undefined) };
+    checkoutLog = { registrar: jest.fn().mockResolvedValue(undefined) };
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         WebhookService,
         { provide: PrismaService, useValue: prisma },
         { provide: PagbankService, useValue: pagbank },
+        { provide: CheckoutLogService, useValue: checkoutLog },
         { provide: ConfigService, useValue: { get: () => undefined } },
       ],
     }).compile();
@@ -322,6 +326,74 @@ describe('WebhookService', () => {
       const r = await service.processar(notificacao());
 
       expect(r[0].status).toBe('confirmada');
+    });
+  });
+
+  describe('auditoria da inativação automática', () => {
+    beforeEach(() => {
+      prisma.formacao_evento.findUnique.mockResolvedValue({
+        vagas: 50,
+        slug: 'goiania-2026-10-03',
+        cidade: 'Goiânia – GO',
+      });
+      prisma.formacao_venda.aggregate.mockResolvedValue({ _sum: { vagas: 50 } });
+      prisma.formacao_lote.findMany.mockResolvedValue([
+        {
+          id: 'l-1',
+          checkout_id: 'CHEC_A',
+          checkout_url: 'https://pagseguro/pay?code=a',
+          checkout_ambiente: 'producao',
+          nome: '1º lote',
+        },
+      ]);
+    });
+
+    it('registra o link derrubado, sem ator e com o placar da decisão', async () => {
+      await service.processar(notificacao());
+
+      expect(checkoutLog.registrar).toHaveBeenCalledWith(
+        expect.objectContaining({
+          acao: 'inativado',
+          motivo: 'lotou',
+          atorUsuarioId: null,
+          checkoutId: 'CHEC_A',
+          checkoutUrl: 'https://pagseguro/pay?code=a',
+          vendidas: 50,
+          vagas: 50,
+        }),
+      );
+      // Sucesso não carrega erro — é o que separa "derrubei" de "tentei derrubar".
+      expect(checkoutLog.registrar.mock.calls[0][0].erro).toBeUndefined();
+    });
+
+    it('desnormaliza evento e lote — o log sobrevive ao delete do evento', async () => {
+      await service.processar(notificacao());
+
+      expect(checkoutLog.registrar).toHaveBeenCalledWith(
+        expect.objectContaining({
+          eventoSlug: 'goiania-2026-10-03',
+          eventoCidade: 'Goiânia – GO',
+          loteNome: '1º lote',
+        }),
+      );
+    });
+
+    it('registra a TENTATIVA quando o PagBank recusa: o link pode ter seguido vendendo', async () => {
+      pagbank.inativar.mockRejectedValue(new Error('PagBank fora'));
+
+      await service.processar(notificacao());
+
+      expect(checkoutLog.registrar).toHaveBeenCalledWith(
+        expect.objectContaining({ motivo: 'lotou', erro: 'PagBank fora' }),
+      );
+    });
+
+    it('não registra nada enquanto ainda há vaga', async () => {
+      prisma.formacao_venda.aggregate.mockResolvedValue({ _sum: { vagas: 49 } });
+
+      await service.processar(notificacao());
+
+      expect(checkoutLog.registrar).not.toHaveBeenCalled();
     });
   });
 

@@ -11,6 +11,7 @@ import type { AuthenticatedUser } from '../common/auth/interfaces/authenticated-
 import type { CreateLoteDto } from './dto/create-lote.dto.js';
 import type { UpdateLoteDto } from './dto/update-lote.dto.js';
 import { PagbankService } from './pagbank/pagbank.service.js';
+import { CheckoutLogService } from './checkout-log.service.js';
 import { serializarLote } from './datas.js';
 import { eventoRealizado } from './status.js';
 
@@ -20,6 +21,7 @@ export class LoteService {
     private readonly prisma: PrismaService,
     private readonly abilityFactory: AbilityFactory,
     private readonly pagbank: PagbankService,
+    private readonly checkoutLog: CheckoutLogService,
   ) {}
 
   private assertPode(user: AuthenticatedUser, acao: 'read' | 'create' | 'update' | 'delete') {
@@ -190,6 +192,20 @@ export class LoteService {
       },
     });
 
+    await this.checkoutLog.registrar({
+      loteId: lote.id,
+      eventoId: lote.evento_id,
+      eventoSlug: lote.evento.slug,
+      eventoCidade: lote.evento.cidade,
+      loteNome: lote.nome,
+      acao: 'criado',
+      motivo: 'manual',
+      atorUsuarioId: user.id,
+      checkoutId: criado.id,
+      checkoutUrl: criado.url,
+      checkoutAmbiente: this.pagbank.ambiente,
+    });
+
     return {
       ...serializarLote(atualizado),
       // A URL do checkout precisa ir para o site: o snapshot commitado em
@@ -210,7 +226,15 @@ export class LoteService {
 
     const lote = await this.prisma.formacao_lote.findUnique({
       where: { id },
-      select: { id: true, nome: true, checkout_id: true },
+      select: {
+        id: true,
+        nome: true,
+        evento_id: true,
+        checkout_id: true,
+        checkout_url: true,
+        checkout_ambiente: true,
+        evento: { select: { slug: true, cidade: true } },
+      },
     });
     if (!lote) throw new NotFoundException('Lote não encontrado');
 
@@ -220,7 +244,30 @@ export class LoteService {
       );
     }
 
-    await this.pagbank.inativar(lote.checkout_id);
+    // O que o log guarda é o estado ANTES da limpeza: depois do update, o lote não
+    // sabe mais qual link foi derrubado.
+    const registro = {
+      loteId: lote.id,
+      eventoId: lote.evento_id,
+      eventoSlug: lote.evento.slug,
+      eventoCidade: lote.evento.cidade,
+      loteNome: lote.nome,
+      acao: 'inativado' as const,
+      motivo: 'manual' as const,
+      atorUsuarioId: user.id,
+      checkoutId: lote.checkout_id,
+      checkoutUrl: lote.checkout_url,
+      checkoutAmbiente: lote.checkout_ambiente,
+    };
+
+    try {
+      await this.pagbank.inativar(lote.checkout_id);
+    } catch (e) {
+      // A tentativa que falhou é justamente a que precisa ficar registrada: o link
+      // pode ter continuado vendendo.
+      await this.checkoutLog.registrar({ ...registro, erro: (e as Error).message });
+      throw e;
+    }
 
     const inativado = await this.prisma.formacao_lote.update({
       where: { id },
@@ -231,6 +278,8 @@ export class LoteService {
         checkout_criado_em: null,
       },
     });
+
+    await this.checkoutLog.registrar(registro);
     return serializarLote(inativado);
   }
 }

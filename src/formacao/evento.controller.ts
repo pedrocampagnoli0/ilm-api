@@ -118,7 +118,7 @@ export class EventoController {
   }
 
   @Delete(':id')
-  @ApiOperation({ summary: 'Apagar evento (recusa se já houver venda)' })
+  @ApiOperation({ summary: 'Apagar evento (recusa se houver venda de produção)' })
   remove(
     @CurrentUser() user: AuthenticatedUser,
     @Param('id', ParseUUIDPipe) id: string,

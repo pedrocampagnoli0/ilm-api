@@ -219,8 +219,11 @@ export class EventoService {
 
     // Apagar um evento com venda apagaria histórico financeiro: as vendas só têm
     // FK ON DELETE SET NULL e virariam órfãs sem rastro de qual turma eram.
+    //
+    // Venda de sandbox não é histórico de nada — é resíduo de teste do checkout, e
+    // travava justamente os eventos de teste que o painel precisa conseguir limpar.
     const vendas = await this.prisma.formacao_venda.count({
-      where: { evento_id: id },
+      where: { evento_id: id, ambiente: { not: 'sandbox' } },
     });
     if (vendas > 0) {
       throw new ConflictException(

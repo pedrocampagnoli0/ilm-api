@@ -105,6 +105,27 @@ export class CheckoutLogService {
       take: Math.min(filtros.limit ?? 100, 500),
     });
 
-    return { data: linhas, total: linhas.length };
+    // O nome do ator é resolvido aqui, não por relation: o log guarda um ponteiro
+    // SET NULL de propósito, e a tela não pode exibir UUID. Uma consulta a mais para
+    // todos os atores da página, não uma por linha.
+    const atorIds = [
+      ...new Set(linhas.map((l) => l.ator_usuario_id).filter((id): id is string => !!id)),
+    ];
+    const atores = atorIds.length
+      ? await this.prisma.usuario.findMany({
+          where: { id: { in: atorIds } },
+          select: { id: true, nome: true },
+        })
+      : [];
+    const nomePorId = new Map(atores.map((a) => [a.id, a.nome]));
+
+    return {
+      data: linhas.map((l) => ({
+        ...l,
+        // null quando foi o sistema; null também se o usuário foi apagado depois.
+        ator_nome: l.ator_usuario_id ? (nomePorId.get(l.ator_usuario_id) ?? null) : null,
+      })),
+      total: linhas.length,
+    };
   }
 }

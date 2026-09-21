@@ -17,6 +17,29 @@ const TIMEOUT_MS = 45_000;
 
 const dormir = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
+const FORMATO_BRASILIA = new Intl.DateTimeFormat('sv-SE', {
+  timeZone: 'America/Sao_Paulo',
+  year: 'numeric',
+  month: '2-digit',
+  day: '2-digit',
+  hour: '2-digit',
+  minute: '2-digit',
+  hourCycle: 'h23',
+});
+
+/**
+ * `YYYY-MM-DDTHH:mm` em horário de Brasília, o formato de `initialDate`/`finalDate`.
+ *
+ * A API lê esses parâmetros como horário de Brasília, sem aceitar fuso. Mandar
+ * `toISOString()` (UTC) empurrava a data final 3 horas para o futuro, e a janela mais
+ * recente da busca era recusada com 400 / 13009 ("finalDate must be lower than allowed
+ * limit"). O erro era engolido pelo `continue` de `descobrir`, então a janela com as
+ * vendas mais novas sumia sem alarde.
+ */
+export function formatarDataBusca(d: Date): string {
+  return FORMATO_BRASILIA.format(d).replace(' ', 'T');
+}
+
 /**
  * Cliente da API de transações do PagSeguro clássico.
  *
@@ -138,13 +161,12 @@ export class PagbankLegadoClient {
    * (fora disso, responde 400).
    */
   async porPeriodo(de: Date, ate: Date): Promise<TransacaoLegada[]> {
-    const iso = (d: Date) => d.toISOString().slice(0, 16); // YYYY-MM-DDTHH:mm
     const encontradas: TransacaoLegada[] = [];
 
     for (let pagina = 1; pagina <= 20; pagina++) {
       const params = this.credenciais();
-      params.set('initialDate', iso(de));
-      params.set('finalDate', iso(ate));
+      params.set('initialDate', formatarDataBusca(de));
+      params.set('finalDate', formatarDataBusca(ate));
       params.set('maxPageResults', String(POR_PAGINA));
       params.set('page', String(pagina));
 

@@ -2,10 +2,12 @@ import {
   Body,
   Controller,
   Delete,
+  Get,
   Param,
   ParseUUIDPipe,
   Patch,
   Post,
+  Query,
   UseGuards,
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
@@ -13,6 +15,7 @@ import { JwtAuthGuard } from '../common/auth/guards/jwt-auth.guard.js';
 import { CurrentUser } from '../common/auth/decorators/current-user.decorator.js';
 import type { AuthenticatedUser } from '../common/auth/interfaces/authenticated-user.interface.js';
 import { LoteService } from './lote.service.js';
+import { CheckoutLogService } from './checkout-log.service.js';
 import { CreateLoteDto } from './dto/create-lote.dto.js';
 import { UpdateLoteDto } from './dto/update-lote.dto.js';
 
@@ -21,7 +24,28 @@ import { UpdateLoteDto } from './dto/update-lote.dto.js';
 @UseGuards(JwtAuthGuard)
 @Controller('admin/formacoes/lotes')
 export class LoteController {
-  constructor(private readonly loteService: LoteService) {}
+  constructor(
+    private readonly loteService: LoteService,
+    private readonly checkoutLog: CheckoutLogService,
+  ) {}
+
+  // Antes de ':id' de propósito: 'checkout-log' casaria com o parâmetro de rota.
+  @Get('checkout-log')
+  @ApiOperation({
+    summary: 'Auditoria de criação/inativação de link de pagamento',
+  })
+  listarCheckoutLog(
+    @CurrentUser() user: AuthenticatedUser,
+    @Query('evento_id') eventoId?: string,
+    @Query('motivo') motivo?: 'manual' | 'lotou',
+    @Query('limit') limit?: string,
+  ) {
+    return this.checkoutLog.listar(user, {
+      eventoId,
+      motivo,
+      limit: limit ? Number(limit) : undefined,
+    });
+  }
 
   @Post()
   @ApiOperation({ summary: 'Criar lote (individual ou pacote em grupo)' })

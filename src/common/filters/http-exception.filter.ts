@@ -7,6 +7,7 @@ import {
   Logger,
 } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
+import * as Sentry from '@sentry/node';
 import type { Response } from 'express';
 
 // Map Postgres FK constraint names to actionable pt-BR explanations. The
@@ -200,6 +201,13 @@ export class GlobalExceptionFilter implements ExceptionFilter {
       } else {
         this.logger.error(exception.message, exception.stack);
       }
+    }
+
+    // Only unexpected 5xx failures go to Sentry — expected 4xx (validation,
+    // permission, not-found, conflict) would just burn the free-tier quota
+    // without helping anyone.
+    if (status >= HttpStatus.INTERNAL_SERVER_ERROR) {
+      Sentry.captureException(exception);
     }
 
     response.status(status).json({

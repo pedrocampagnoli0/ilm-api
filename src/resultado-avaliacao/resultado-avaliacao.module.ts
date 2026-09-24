@@ -7,5 +7,6 @@ import { CaslModule } from '../common/casl/casl.module.js';
   imports: [CaslModule],
   controllers: [ResultadoAvaliacaoController],
   providers: [ResultadoAvaliacaoService],
+  exports: [ResultadoAvaliacaoService],
 })
 export class ResultadoAvaliacaoModule {}

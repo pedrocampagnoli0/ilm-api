@@ -189,7 +189,11 @@ export class ResultadoAvaliacaoService {
         usuario_nome: string;
         change_action: string;
         changed_at: string;
-        resultado_count: number;
+        // A RPC devolve bigint (Postgres COUNT/CAST) — $queryRawUnsafe mapeia
+        // isso pra BigInt nativo do Node, não pra number. Express/JSON.stringify
+        // não sabe serializar BigInt (TypeError em runtime, apesar do tipo
+        // aqui dizer "number" — essa anotação só existe em tempo de compilação).
+        resultado_count: bigint;
       }>
     >(
       `SELECT * FROM get_avaliacao_change_history(
@@ -200,7 +204,9 @@ export class ResultadoAvaliacaoService {
       avaliacaoId,
     );
 
-    return { data: result };
+    return {
+      data: result.map((row) => ({ ...row, resultado_count: Number(row.resultado_count) })),
+    };
   }
 
   /**

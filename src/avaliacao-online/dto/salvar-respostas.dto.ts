@@ -16,6 +16,11 @@ import {
 
 const TIPOS_VALIDOS = [
   'escolha', 'beads', 'oral', 'figura', 'cloze', 'paragrafo', 'ppm', 'quiz', 'leitura',
+  // 'letra'/'som' — nome/som de letra (blocos nome_letra/som_letra). Contam
+  // para ei2_nomes_letras/ei2_sons_letras (ver scoring.ts); no 1º ano os
+  // mesmos blocos existem mas não têm coluna — a resposta é aceita e só não
+  // entra em nenhum cálculo (ver comentário "SEM_CAMPO" no domínio do front).
+  'letra', 'som',
 ] as const;
 
 export class RespostaItemDto {

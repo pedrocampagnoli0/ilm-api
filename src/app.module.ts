@@ -14,6 +14,7 @@ import { UsuarioModule } from './usuario/usuario.module.js';
 import { AlunoModule } from './aluno/aluno.module.js';
 import { AvaliacaoModule } from './avaliacao/avaliacao.module.js';
 import { ResultadoAvaliacaoModule } from './resultado-avaliacao/resultado-avaliacao.module.js';
+import { AvaliacaoOnlineModule } from './avaliacao-online/avaliacao-online.module.js';
 import { LogLoginModule } from './log-login/log-login.module.js';
 import { RankingModule } from './ranking/ranking.module.js';
 import { ImportBulkModule } from './import-bulk/import-bulk.module.js';
@@ -61,6 +62,7 @@ import { ScheduleModule } from '@nestjs/schedule';
     AlunoModule,
     AvaliacaoModule,
     ResultadoAvaliacaoModule,
+    AvaliacaoOnlineModule,
     LogLoginModule,
     RankingModule,
     ImportBulkModule,

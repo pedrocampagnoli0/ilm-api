@@ -23,6 +23,38 @@ const ALUNO_INCLUDE = {
   municipio: { select: { id: true, nome: true } },
 } as const;
 
+const csv = (v?: string) =>
+  v ? v.split(',').map((x) => x.trim()).filter(Boolean) : [];
+
+/**
+ * Filtros de listagem compartilhados por `findAll` e `count`, para os dois nunca
+ * divergirem. Cada filtro aceita um valor (`turma_id`) e/ou vários (`turma_ids`); com
+ * os dois presentes valem os dois (AND), como já era com os filtros singulares.
+ */
+function filtrosDaListagem(query: ListAlunosQueryDto): Prisma.alunoWhereInput[] {
+  const filters: Prisma.alunoWhereInput[] = [];
+  if (query.turma_id) filters.push({ turma_id: query.turma_id });
+  if (query.escola_id) filters.push({ escola_id: query.escola_id });
+  if (query.municipio_id) filters.push({ municipio_id: query.municipio_id });
+  if (query.is_inclusao !== undefined) filters.push({ is_inclusao: query.is_inclusao });
+  if (query.is_transferido !== undefined) filters.push({ is_transferido: query.is_transferido });
+
+  const municipios = csv(query.municipio_ids);
+  if (municipios.length) filters.push({ municipio_id: { in: municipios } });
+  const escolas = csv(query.escola_ids);
+  if (escolas.length) filters.push({ escola_id: { in: escolas } });
+  const turmas = csv(query.turma_ids);
+  if (turmas.length) filters.push({ turma_id: { in: turmas } });
+  // Aluno não tem ciclo próprio: vem da turma (turma.ciclo_id, indexado).
+  const ciclos = csv(query.ciclo_ids);
+  if (ciclos.length) filters.push({ turma: { is: { ciclo_id: { in: ciclos } } } });
+
+  if (query.created_at_max) {
+    filters.push({ created_at: { lte: new Date(query.created_at_max) } });
+  }
+  return filters;
+}
+
 @Injectable()
 export class AlunoService {
   constructor(
@@ -34,23 +66,8 @@ export class AlunoService {
     const ability = this.abilityFactory.createForUser(user);
     const caslWhere = getCaslWhere(user, ability, 'read', 'aluno');
 
-    const filters: Prisma.alunoWhereInput[] = [caslWhere];
+    const filters: Prisma.alunoWhereInput[] = [caslWhere, ...filtrosDaListagem(query)];
 
-    if (query.turma_id) {
-      filters.push({ turma_id: query.turma_id });
-    }
-    if (query.escola_id) {
-      filters.push({ escola_id: query.escola_id });
-    }
-    if (query.municipio_id) {
-      filters.push({ municipio_id: query.municipio_id });
-    }
-    if (query.is_inclusao !== undefined) {
-      filters.push({ is_inclusao: query.is_inclusao });
-    }
-    if (query.is_transferido !== undefined) {
-      filters.push({ is_transferido: query.is_transferido });
-    }
     if (query.search) {
       filters.push({
         nome: { contains: query.search, mode: 'insensitive' },
@@ -62,16 +79,6 @@ export class AlunoService {
         filters.push({ id: { in: idList } });
       }
     }
-    if (query.turma_ids) {
-      const idList = query.turma_ids.split(',').map((s) => s.trim()).filter(Boolean);
-      if (idList.length > 0) {
-        filters.push({ turma_id: { in: idList } });
-      }
-    }
-    if (query.created_at_max) {
-      filters.push({ created_at: { lte: new Date(query.created_at_max) } });
-    }
-
     const where: Prisma.alunoWhereInput = { AND: filters };
 
     const customSelect = query.fields
@@ -103,20 +110,7 @@ export class AlunoService {
     const ability = this.abilityFactory.createForUser(user);
     const caslWhere = accessibleBy(ability, 'read').aluno;
 
-    const filters: Prisma.alunoWhereInput[] = [caslWhere];
-
-    if (query.turma_id) filters.push({ turma_id: query.turma_id });
-    if (query.escola_id) filters.push({ escola_id: query.escola_id });
-    if (query.municipio_id) filters.push({ municipio_id: query.municipio_id });
-    if (query.is_inclusao !== undefined) filters.push({ is_inclusao: query.is_inclusao });
-    if (query.is_transferido !== undefined) filters.push({ is_transferido: query.is_transferido });
-    if (query.turma_ids) {
-      const idList = query.turma_ids.split(',').map((s) => s.trim()).filter(Boolean);
-      if (idList.length > 0) filters.push({ turma_id: { in: idList } });
-    }
-    if (query.created_at_max) {
-      filters.push({ created_at: { lte: new Date(query.created_at_max) } });
-    }
+    const filters: Prisma.alunoWhereInput[] = [caslWhere, ...filtrosDaListagem(query)];
 
     const where: Prisma.alunoWhereInput = { AND: filters };
     const total = await this.prisma.aluno.count({ where });

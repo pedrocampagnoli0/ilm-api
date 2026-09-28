@@ -61,4 +61,22 @@ export class ListAlunosQueryDto extends PaginationQueryDto {
   @IsOptional()
   @IsISO8601()
   created_at_max?: string;
+
+  @ApiPropertyOptional({ description: 'Comma-separated município UUIDs (multi-select)' })
+  @IsOptional()
+  @IsString()
+  @MaxLength(8000)
+  municipio_ids?: string;
+
+  @ApiPropertyOptional({ description: 'Comma-separated escola UUIDs (multi-select)' })
+  @IsOptional()
+  @IsString()
+  @MaxLength(8000)
+  escola_ids?: string;
+
+  @ApiPropertyOptional({ description: 'Comma-separated ciclo UUIDs — filtra pelo ciclo da turma do aluno' })
+  @IsOptional()
+  @IsString()
+  @MaxLength(8000)
+  ciclo_ids?: string;
 }

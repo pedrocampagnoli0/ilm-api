@@ -778,6 +778,9 @@ model formacao_evento {
   local         String
   endereco      String
   como_chegar   String?
+  /// 'HH:MM' 24h. Padrão 08:00–17:00.
+  hora_inicio   String   @default("08:00")
+  hora_fim      String   @default("17:00")
   /// null = sem limite; nunca esgota sozinho.
   vagas         Int?
   /// Piso do selo: a contagem de vendas só pode apertá-lo. abertas|ultimas|esgotado

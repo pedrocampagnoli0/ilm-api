@@ -74,6 +74,8 @@ export class PublicoService {
         slug: evento.slug,
         cidade: evento.cidade,
         data: soData(evento.data),
+        horaInicio: evento.hora_inicio,
+        horaFim: evento.hora_fim,
         local: evento.local,
         endereco: evento.endereco,
         comoChegar: evento.como_chegar,

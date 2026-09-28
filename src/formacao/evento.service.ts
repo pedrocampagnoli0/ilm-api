@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   ConflictException,
   ForbiddenException,
   Injectable,
@@ -135,6 +136,10 @@ export class EventoService {
   async create(user: AuthenticatedUser, dto: CreateEventoDto) {
     this.assertPode(user, 'create');
 
+    if ((dto.hora_fim ?? '17:00') <= (dto.hora_inicio ?? '08:00')) {
+      throw new BadRequestException('O horário de término deve ser depois do início.');
+    }
+
     const jaExiste = await this.prisma.formacao_evento.findUnique({
       where: { slug: dto.slug },
       select: { id: true },
@@ -153,6 +158,8 @@ export class EventoService {
         local: dto.local,
         endereco: dto.endereco,
         como_chegar: dto.como_chegar ?? null,
+        ...(dto.hora_inicio ? { hora_inicio: dto.hora_inicio } : {}),
+        ...(dto.hora_fim ? { hora_fim: dto.hora_fim } : {}),
         vagas: dto.vagas ?? null,
         publicado: dto.publicado ?? false,
       },
@@ -173,6 +180,13 @@ export class EventoService {
     if (dto.endereco !== undefined) data.endereco = dto.endereco;
     if (dto.como_chegar !== undefined) data.como_chegar = dto.como_chegar;
     if (dto.vagas !== undefined) data.vagas = dto.vagas;
+    if (dto.hora_inicio !== undefined) data.hora_inicio = dto.hora_inicio;
+    if (dto.hora_fim !== undefined) data.hora_fim = dto.hora_fim;
+    const ini = data.hora_inicio ?? evento.hora_inicio;
+    const fim = data.hora_fim ?? evento.hora_fim;
+    if (fim <= ini) {
+      throw new BadRequestException('O horário de término deve ser depois do início.');
+    }
 
     const atualizado = await this.prisma.formacao_evento.update({ where: { id }, data });
     return serializarEvento(atualizado);

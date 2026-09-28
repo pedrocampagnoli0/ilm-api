@@ -11,6 +11,8 @@ import {
 } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
+const HORA = /^([01][0-9]|2[0-3]):[0-5][0-9]$/;
+
 export class CreateEventoDto {
   @ApiProperty({
     description:
@@ -52,6 +54,16 @@ export class CreateEventoDto {
   @IsString()
   @MaxLength(2000)
   como_chegar?: string | null;
+
+  @ApiPropertyOptional({ description: 'HH:MM (24h). Padrão 08:00.', example: '08:00' })
+  @IsOptional()
+  @Matches(HORA, { message: 'hora_inicio deve estar no formato HH:MM' })
+  hora_inicio?: string;
+
+  @ApiPropertyOptional({ description: 'HH:MM (24h). Padrão 17:00.', example: '17:00' })
+  @IsOptional()
+  @Matches(HORA, { message: 'hora_fim deve estar no formato HH:MM' })
+  hora_fim?: string;
 
   @ApiProperty({
     description:

@@ -11,8 +11,12 @@ export class NutrorSyncScheduler {
   // 06:00 UTC daily = 03:00 BRT (UTC-3).
   @Cron('0 6 * * *', { timeZone: 'UTC' })
   async dailySync() {
-    this.logger.log('Starting scheduled Nutror sync');
     try {
+      if (!(await this.sync.ganhouOCiclo())) {
+        this.logger.debug('Nutror sync já assumido por outra máquina — saindo');
+        return;
+      }
+      this.logger.log('Starting scheduled Nutror sync');
       const result = await this.sync.runFullSync();
       this.logger.log(`Scheduled sync complete: ${JSON.stringify(result)}`);
     } catch (e) {

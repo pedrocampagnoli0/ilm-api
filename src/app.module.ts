@@ -22,6 +22,7 @@ import { ReuniaoModule } from './reuniao/reuniao.module.js';
 import { ObservacaoModule } from './observacao/observacao.module.js';
 import { TentativaContatoModule } from './tentativa-contato/tentativa-contato.module.js';
 import { FeriadoModule } from './feriado/feriado.module.js';
+import { AssessoraMetaReunioesModule } from './assessora-meta-reunioes/assessora-meta-reunioes.module.js';
 import { ContatoPrincipalModule } from './contato-principal/contato-principal.module.js';
 import { AssessoraMunicipioModule } from './assessora-municipio/assessora-municipio.module.js';
 import { UsuarioImpersonatePermModule } from './usuario-impersonate-perm/usuario-impersonate-perm.module.js';
@@ -70,6 +71,7 @@ import { ScheduleModule } from '@nestjs/schedule';
     ObservacaoModule,
     TentativaContatoModule,
     FeriadoModule,
+    AssessoraMetaReunioesModule,
     ContatoPrincipalModule,
     AssessoraMunicipioModule,
     UsuarioImpersonatePermModule,

@@ -426,3 +426,28 @@ describe('UsuarioService', () => {
     });
   });
 });
+
+describe('UsuarioService.contagemProfessores', () => {
+  const ID = '11111111-1111-4111-8111-111111111111';
+  const mk = (groupBy = jest.fn().mockResolvedValue([{ municipio_id: ID, _count: { _all: 7 } }])) => ({
+    svc: new UsuarioService({ usuario: { groupBy } } as any, {} as any),
+    groupBy,
+  });
+
+  it('nega não-admin', async () => {
+    await expect(mk().svc.contagemProfessores(makeProfessor(), ID)).rejects.toThrow(ForbiddenException);
+  });
+  it('rejeita ids que não são UUID', async () => {
+    await expect(mk().svc.contagemProfessores(makeAdmin(), 'abc')).rejects.toThrow('UUIDs');
+  });
+  it('lista vazia não consulta', async () => {
+    const { svc, groupBy } = mk();
+    expect(await svc.contagemProfessores(makeAdmin(), '')).toEqual({ data: [] });
+    expect(groupBy).not.toHaveBeenCalled();
+  });
+  it('agrupa por município numa query', async () => {
+    const { svc, groupBy } = mk();
+    expect(await svc.contagemProfessores(makeAdmin(), ID)).toEqual({ data: [{ municipio_id: ID, professores: 7 }] });
+    expect(groupBy).toHaveBeenCalledTimes(1);
+  });
+});

@@ -36,6 +36,15 @@ export class UsuarioController {
     return this.usuarioService.findAll(user, query);
   }
 
+  @Get('contagem-professores')
+  @ApiOperation({ summary: 'Professores ativos por município (ilm/admin). municipio_ids=a,b,c' })
+  contagemProfessores(
+    @CurrentUser() user: AuthenticatedUser,
+    @Query('municipio_ids') municipioIds?: string,
+  ) {
+    return this.usuarioService.contagemProfessores(user, municipioIds);
+  }
+
   @Get('me')
   @ApiOperation({ summary: 'Buscar perfil do usuário autenticado' })
   findMe(@CurrentUser() user: AuthenticatedUser) {

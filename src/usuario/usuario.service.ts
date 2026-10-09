@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   ConflictException,
   ForbiddenException,
   Injectable,
@@ -35,6 +36,23 @@ export class UsuarioService {
     private readonly prisma: PrismaService,
     private readonly abilityFactory: AbilityFactory,
   ) {}
+
+  /** Professores ativos por município (uma query). Só ilm/administrador. */
+  async contagemProfessores(user: AuthenticatedUser, municipioIds?: string) {
+    if (user.perfil !== 'ilm' && user.perfil !== 'administrador') {
+      throw new ForbiddenException('Apenas perfis ilm ou administrador podem consultar esta contagem.');
+    }
+    const ids = (municipioIds ?? '').split(',').map((s) => s.trim()).filter(Boolean);
+    if (ids.length === 0) return { data: [] };
+    const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    if (ids.some((i) => !uuid.test(i))) throw new BadRequestException('municipio_ids deve conter UUIDs separados por vírgula.');
+    const grupos = await this.prisma.usuario.groupBy({
+      by: ['municipio_id'],
+      where: { ativo: true, municipio_id: { in: ids }, perfil: { nome: 'professor' } },
+      _count: { _all: true },
+    });
+    return { data: grupos.map((g) => ({ municipio_id: g.municipio_id, professores: g._count._all })) };
+  }
 
   async findAll(user: AuthenticatedUser, query: ListUsuariosQueryDto) {
     const ability = this.abilityFactory.createForUser(user);

@@ -36,6 +36,52 @@ export class UsuarioService {
     private readonly abilityFactory: AbilityFactory,
   ) {}
 
+  /**
+   * Professor/auxiliar: ciclos das turmas ativas. Coordenação: coord_inf → ed_infantil_1/2,
+   * coord_fund → fundamental_1/2. Duas queries, sem N+1.
+   */
+  async ciclosPorMunicipio(user: AuthenticatedUser, municipioId: string) {
+    if (user.perfil !== 'administrador' && user.perfil !== 'ilm') {
+      throw new ForbiddenException('Acesso negado');
+    }
+    const [escolas, turmas] = await Promise.all([
+      this.prisma.escola.findMany({
+        where: { municipio_id: municipioId },
+        select: { coord_inf_id: true, coord_fund_id: true },
+      }),
+      this.prisma.turma.findMany({
+        where: { ativo: true, escola: { municipio_id: municipioId } },
+        select: {
+          professora_id: true,
+          auxiliar_id: true,
+          ciclo: { select: { nome: true } },
+        },
+      }),
+    ]);
+
+    const map = new Map<string, Set<string>>();
+    const add = (uid: string | null, ...ciclos: string[]) => {
+      if (!uid) return;
+      const set = map.get(uid) ?? new Set<string>();
+      ciclos.forEach((c) => set.add(c));
+      map.set(uid, set);
+    };
+    for (const e of escolas) {
+      add(e.coord_inf_id, 'ed_infantil_1', 'ed_infantil_2');
+      add(e.coord_fund_id, 'fundamental_1', 'fundamental_2');
+    }
+    for (const t of turmas) {
+      add(t.professora_id, t.ciclo.nome);
+      add(t.auxiliar_id, t.ciclo.nome);
+    }
+    return {
+      data: [...map].map(([usuario_id, ciclos]) => ({
+        usuario_id,
+        ciclos: [...ciclos],
+      })),
+    };
+  }
+
   async findAll(user: AuthenticatedUser, query: ListUsuariosQueryDto) {
     const ability = this.abilityFactory.createForUser(user);
     const caslWhere = getCaslWhere(user, ability, 'read', 'usuario');

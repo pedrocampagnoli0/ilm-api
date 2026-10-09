@@ -33,6 +33,9 @@ function createMockPrisma() {
       deleteMany: jest.fn().mockResolvedValue({ count: 5 }),
     },
     ranking_escola_diario: {
+      groupBy: jest.fn().mockResolvedValue([
+        { tipo_avaliacao_id: 't1', _max: { data_referencia: new Date('2026-06-10') } },
+      ]),
       findMany: jest.fn().mockResolvedValue([mockRankingEscola]),
       count: jest.fn().mockResolvedValue(1),
       deleteMany: jest.fn().mockResolvedValue({ count: 3 }),
@@ -118,6 +121,28 @@ describe('RankingService', () => {
       await service.findProfessoresPorAvaliacao({ ...q, escola_id: 'e' });
       expect(prisma.ranking_professor_diario.groupBy.mock.calls[0][0].where.escola_id).toBeUndefined();
       expect(prisma.ranking_professor_diario.findMany.mock.calls[0][0].where.escola_id).toBe('e');
+    });
+  });
+
+  describe('findEscolasPorAvaliacao', () => {
+    const q = { municipio_id: 'm', ciclo_id: 'c', ano: 2026 };
+
+    it('busca só o snapshot mais recente >= data_inicio por tipo e achata escola_nome', async () => {
+      prisma.ranking_escola_diario.findMany.mockResolvedValue([
+        { tipo_avaliacao_id: 't1', escola_id: 'e', escola: { nome: 'Esc' } },
+      ]);
+      const r = await service.findEscolasPorAvaliacao(q);
+      expect(r.avaliacoes).toHaveLength(2);
+      const gb = prisma.ranking_escola_diario.groupBy.mock.calls[0][0];
+      expect(gb.where.OR[0]).toEqual({ tipo_avaliacao_id: 't1', data_referencia: { gte: new Date('2026-03-01') } });
+      const fm = prisma.ranking_escola_diario.findMany.mock.calls[0][0];
+      expect(fm.where.OR).toEqual([{ tipo_avaliacao_id: 't1', data_referencia: new Date('2026-06-10') }]);
+      expect(r.rows[0]).toMatchObject({ escola_nome: 'Esc' });
+    });
+
+    it('retorna vazio sem avaliações no ano', async () => {
+      prisma.avaliacao.findMany.mockResolvedValue([]);
+      expect(await service.findEscolasPorAvaliacao(q)).toEqual({ avaliacoes: [], rows: [] });
     });
   });
 });

@@ -51,11 +51,8 @@ export class RankingService {
     return new PaginatedResponseDto(data, total, query.page, query.limit);
   }
 
-  /**
-   * Por tipo de avaliação do ano (menor data_inicio por tipo), o snapshot mais recente
-   * (data_referencia >= data_inicio). Mesmo escopo de acesso de findProfessores (sem filtro extra).
-   */
-  async findProfessoresPorAvaliacao(query: PorAvaliacaoQueryDto) {
+  /** Avaliações do ano agrupadas por tipo (menor data_inicio por tipo). */
+  private async avaliacoesDoAno(query: PorAvaliacaoQueryDto) {
     const ano = query.ano ?? new Date().getFullYear();
     const avals = await this.prisma.avaliacao.findMany({
       where: {
@@ -75,6 +72,16 @@ export class RankingService {
     }
     const tipos = [...porTipo.values()];
     const avaliacoes = tipos.map((t) => ({ id: t.id, nome: t.nome, data_inicio: t.data_inicio.toISOString().slice(0, 10) }));
+    return { avaliacoes, tipos };
+
+  }
+
+  /**
+   * Por tipo de avaliação do ano (menor data_inicio por tipo), o snapshot mais recente
+   * (data_referencia >= data_inicio). Mesmo escopo de acesso de findProfessores (sem filtro extra).
+   */
+  async findProfessoresPorAvaliacao(query: PorAvaliacaoQueryDto) {
+    const { avaliacoes, tipos } = await this.avaliacoesDoAno(query);
     if (tipos.length === 0) return { avaliacoes, rows: [] };
 
     const base = { municipio_id: query.municipio_id, ciclo_id: query.ciclo_id };
@@ -145,6 +152,46 @@ export class RankingService {
     ]);
 
     return new PaginatedResponseDto(data, total, query.page, query.limit);
+  }
+
+  /** Igual a findProfessoresPorAvaliacao, sobre ranking_escola_diario. */
+  async findEscolasPorAvaliacao(query: PorAvaliacaoQueryDto) {
+    const { avaliacoes, tipos } = await this.avaliacoesDoAno(query);
+    if (tipos.length === 0) return { avaliacoes, rows: [] };
+
+    const base = { municipio_id: query.municipio_id, ciclo_id: query.ciclo_id };
+    const latest = await this.prisma.ranking_escola_diario.groupBy({
+      by: ['tipo_avaliacao_id'],
+      where: {
+        ...base,
+        OR: tipos.map((t) => ({ tipo_avaliacao_id: t.id, data_referencia: { gte: t.data_inicio } })),
+      },
+      _max: { data_referencia: true },
+    });
+    const datas = latest.filter((l) => l._max.data_referencia);
+    if (datas.length === 0) return { avaliacoes, rows: [] };
+
+    const data = await this.prisma.ranking_escola_diario.findMany({
+      where: {
+        ...base,
+        ...(query.escola_id ? { escola_id: query.escola_id } : {}),
+        OR: datas.map((l) => ({ tipo_avaliacao_id: l.tipo_avaliacao_id, data_referencia: l._max.data_referencia! })),
+      },
+      select: {
+        tipo_avaliacao_id: true,
+        escola_id: true,
+        ciclo_nome: true,
+        pontuacao_total_avg: true,
+        total_alunos: true,
+        total_professores: true,
+        posicao_municipio: true,
+        escola: { select: { nome: true } },
+      },
+      orderBy: [{ tipo_avaliacao_id: 'asc' }, { id: 'asc' }],
+    });
+
+    const rows = data.map(({ escola, ...r }) => ({ ...r, escola_nome: escola.nome }));
+    return { avaliacoes, rows };
   }
 
   async deleteForMunicipio(user: AuthenticatedUser, municipioId: string) {

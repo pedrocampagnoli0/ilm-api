@@ -38,6 +38,12 @@ export class RankingController {
     return this.rankingService.findEscolas(user, query);
   }
 
+  @Get('escolas/por-avaliacao')
+  @ApiOperation({ summary: 'Ranking de escolas: última posição de cada avaliação do ano' })
+  findEscolasPorAvaliacao(@Query() query: PorAvaliacaoQueryDto) {
+    return this.rankingService.findEscolasPorAvaliacao(query);
+  }
+
   @Get('last-updates')
   @ApiOperation({ summary: 'Últimas atualizações de ranking por município' })
   getLastUpdates() {

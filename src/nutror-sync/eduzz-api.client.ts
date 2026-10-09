@@ -6,6 +6,17 @@ const BASE_URL = 'https://api.eduzz.com';
 // (≈215 req/min nominal, but in practice latency keeps us well under the limit).
 const MIN_REQUEST_INTERVAL_MS = 280;
 
+/**
+ * 401/403 da Eduzz: o PAT foi revogado ou não tem escopo. Não adianta tentar os outros
+ * milhares de e-mails — o sync precisa parar e gritar, em vez de "terminar" sem gravar nada.
+ */
+export class EduzzAuthError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'EduzzAuthError';
+  }
+}
+
 export interface EduzzStudent {
   id: string;
   name: string;
@@ -70,6 +81,11 @@ export class EduzzApiClient {
       });
       if (!res.ok) {
         const body = await res.text().catch(() => '');
+        if (res.status === 401 || res.status === 403) {
+          throw new EduzzAuthError(
+            `Eduzz recusou o EDUZZ_API_PAT (${res.status}) em GET ${path} — token revogado ou sem escopo? ${body.slice(0, 200)}`,
+          );
+        }
         throw new Error(`Eduzz GET ${path} failed: ${res.status} ${body.slice(0, 200)}`);
       }
       return (await res.json()) as T;

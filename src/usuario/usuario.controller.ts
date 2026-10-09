@@ -18,6 +18,7 @@ import { UsuarioService } from './usuario.service.js';
 import { CreateUsuarioDto } from './dto/create-usuario.dto.js';
 import { UpdateUsuarioDto } from './dto/update-usuario.dto.js';
 import { ListUsuariosQueryDto } from './dto/list-usuarios-query.dto.js';
+import { CiclosPorMunicipioQueryDto } from './dto/ciclos-por-municipio-query.dto.js';
 import { BulkInactivateUsuariosDto } from './dto/bulk-inactivate-usuarios.dto.js';
 
 @ApiTags('Usuarios')
@@ -36,10 +37,30 @@ export class UsuarioController {
     return this.usuarioService.findAll(user, query);
   }
 
+  @Get('contagem-professores')
+  @ApiOperation({ summary: 'Professores ativos por município (ilm/admin). municipio_ids=a,b,c' })
+  contagemProfessores(
+    @CurrentUser() user: AuthenticatedUser,
+    @Query('municipio_ids') municipioIds?: string,
+  ) {
+    return this.usuarioService.contagemProfessores(user, municipioIds);
+  }
+
   @Get('me')
   @ApiOperation({ summary: 'Buscar perfil do usuário autenticado' })
   findMe(@CurrentUser() user: AuthenticatedUser) {
     return this.usuarioService.findByAuthUserId(user.authUserId);
+  }
+
+  @Get('ciclos-por-municipio')
+  @ApiOperation({
+    summary: 'Ciclos em que cada usuário do município atua (Painel da Assessora)',
+  })
+  ciclosPorMunicipio(
+    @CurrentUser() user: AuthenticatedUser,
+    @Query() query: CiclosPorMunicipioQueryDto,
+  ) {
+    return this.usuarioService.ciclosPorMunicipio(user, query.municipio_id);
   }
 
   @Get(':id')

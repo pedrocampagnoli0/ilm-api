@@ -15,6 +15,7 @@ import { CurrentUser } from '../common/auth/decorators/current-user.decorator.js
 import type { AuthenticatedUser } from '../common/auth/interfaces/authenticated-user.interface.js';
 import { ResultadoAvaliacaoService } from './resultado-avaliacao.service.js';
 import { ListResultadosQueryDto } from './dto/list-resultados-query.dto.js';
+import { RadarAssessoraDto } from './dto/radar-assessora.dto.js';
 import { UpsertBatchDto } from './dto/upsert-batch.dto.js';
 
 @ApiTags('Resultados Avaliação')
@@ -49,6 +50,15 @@ export class ResultadoAvaliacaoController {
     @Body() body: { avaliacao_ids: string[]; ciclo_id: string },
   ) {
     return this.resultadoService.radar(user, body.avaliacao_ids, body.ciclo_id);
+  }
+
+  @Post('radar-assessora')
+  @ApiOperation({ summary: 'Radar 2º ano por município (Painel da Assessora; admin/ilm)' })
+  radarAssessora(
+    @CurrentUser() user: AuthenticatedUser,
+    @Body() dto: RadarAssessoraDto,
+  ) {
+    return this.resultadoService.radarAssessora(user, dto.municipio_ids);
   }
 
   @Get('history/:turmaId/:avaliacaoId')

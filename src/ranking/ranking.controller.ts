@@ -5,6 +5,7 @@ import { CurrentUser } from '../common/auth/decorators/current-user.decorator.js
 import type { AuthenticatedUser } from '../common/auth/interfaces/authenticated-user.interface.js';
 import { RankingService } from './ranking.service.js';
 import { ListRankingsQueryDto } from './dto/list-rankings-query.dto.js';
+import { PorAvaliacaoQueryDto } from './dto/por-avaliacao-query.dto.js';
 
 @ApiTags('Rankings')
 @ApiBearerAuth()
@@ -22,6 +23,12 @@ export class RankingController {
     return this.rankingService.findProfessores(user, query);
   }
 
+  @Get('professores/por-avaliacao')
+  @ApiOperation({ summary: 'Ranking de professores: última posição de cada avaliação do ano' })
+  findProfessoresPorAvaliacao(@Query() query: PorAvaliacaoQueryDto) {
+    return this.rankingService.findProfessoresPorAvaliacao(query);
+  }
+
   @Get('escolas')
   @ApiOperation({ summary: 'Listar ranking de escolas' })
   findEscolas(
@@ -29,6 +36,12 @@ export class RankingController {
     @Query() query: ListRankingsQueryDto,
   ) {
     return this.rankingService.findEscolas(user, query);
+  }
+
+  @Get('escolas/por-avaliacao')
+  @ApiOperation({ summary: 'Ranking de escolas: última posição de cada avaliação do ano' })
+  findEscolasPorAvaliacao(@Query() query: PorAvaliacaoQueryDto) {
+    return this.rankingService.findEscolasPorAvaliacao(query);
   }
 
   @Get('last-updates')

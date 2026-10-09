@@ -426,3 +426,63 @@ describe('UsuarioService', () => {
     });
   });
 });
+
+describe('UsuarioService.ciclosPorMunicipio', () => {
+  const build = (escolas: any[], turmas: any[]) => {
+    const prisma = {
+      escola: { findMany: jest.fn().mockResolvedValue(escolas) },
+      turma: { findMany: jest.fn().mockResolvedValue(turmas) },
+    };
+    return { prisma, svc: new UsuarioService(prisma as any, {} as any) };
+  };
+
+  it('403 para professor', async () => {
+    const { svc, prisma } = build([], []);
+    await expect(svc.ciclosPorMunicipio(makeProfessor(), 'm')).rejects.toBeInstanceOf(ForbiddenException);
+    expect(prisma.escola.findMany).not.toHaveBeenCalled();
+  });
+
+  it('mapeia professor, auxiliar, coord_inf e coord_fund', async () => {
+    const { svc } = build(
+      [{ coord_inf_id: 'ci', coord_fund_id: 'cf' }],
+      [
+        { professora_id: 'p', auxiliar_id: 'a', ciclo: { nome: 'fundamental_1' } },
+        { professora_id: 'p', auxiliar_id: null, ciclo: { nome: 'fundamental_2' } },
+        { professora_id: 'ci', auxiliar_id: null, ciclo: { nome: 'fundamental_1' } },
+      ],
+    );
+    const { data } = await svc.ciclosPorMunicipio(makeAdmin(), 'm');
+    const by = Object.fromEntries(data.map((d) => [d.usuario_id, d.ciclos.sort()]));
+    expect(by).toEqual({
+      ci: ['ed_infantil_1', 'ed_infantil_2', 'fundamental_1'],
+      cf: ['fundamental_1', 'fundamental_2'],
+      p: ['fundamental_1', 'fundamental_2'],
+      a: ['fundamental_1'],
+    });
+  });
+});
+
+describe('UsuarioService.contagemProfessores', () => {
+  const ID = '11111111-1111-4111-8111-111111111111';
+  const mk = (groupBy = jest.fn().mockResolvedValue([{ municipio_id: ID, _count: { _all: 7 } }])) => ({
+    svc: new UsuarioService({ usuario: { groupBy } } as any, {} as any),
+    groupBy,
+  });
+
+  it('nega não-admin', async () => {
+    await expect(mk().svc.contagemProfessores(makeProfessor(), ID)).rejects.toThrow(ForbiddenException);
+  });
+  it('rejeita ids que não são UUID', async () => {
+    await expect(mk().svc.contagemProfessores(makeAdmin(), 'abc')).rejects.toThrow('UUIDs');
+  });
+  it('lista vazia não consulta', async () => {
+    const { svc, groupBy } = mk();
+    expect(await svc.contagemProfessores(makeAdmin(), '')).toEqual({ data: [] });
+    expect(groupBy).not.toHaveBeenCalled();
+  });
+  it('agrupa por município numa query', async () => {
+    const { svc, groupBy } = mk();
+    expect(await svc.contagemProfessores(makeAdmin(), ID)).toEqual({ data: [{ municipio_id: ID, professores: 7 }] });
+    expect(groupBy).toHaveBeenCalledTimes(1);
+  });
+});

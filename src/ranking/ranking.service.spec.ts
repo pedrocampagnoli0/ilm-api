@@ -17,12 +17,25 @@ const mockRankingEscola = { id: 'r2', escola_id: 'e1', pontuacao_total_avg: 90 }
 
 function createMockPrisma() {
   return {
+    avaliacao: {
+      findMany: jest.fn().mockResolvedValue([
+        { tipo_id: 't1', data_inicio: new Date('2026-05-01'), tipo_avaliacao: { nome: 'Avaliação 1' } },
+        { tipo_id: 't1', data_inicio: new Date('2026-03-01'), tipo_avaliacao: { nome: 'Avaliação 1' } },
+        { tipo_id: 't2', data_inicio: new Date('2026-08-01'), tipo_avaliacao: { nome: 'Avaliação 2' } },
+      ]),
+    },
     ranking_professor_diario: {
+      groupBy: jest.fn().mockResolvedValue([
+        { tipo_avaliacao_id: 't1', _max: { data_referencia: new Date('2026-06-10') } },
+      ]),
       findMany: jest.fn().mockResolvedValue([mockRankingProf]),
       count: jest.fn().mockResolvedValue(1),
       deleteMany: jest.fn().mockResolvedValue({ count: 5 }),
     },
     ranking_escola_diario: {
+      groupBy: jest.fn().mockResolvedValue([
+        { tipo_avaliacao_id: 't1', _max: { data_referencia: new Date('2026-06-10') } },
+      ]),
       findMany: jest.fn().mockResolvedValue([mockRankingEscola]),
       count: jest.fn().mockResolvedValue(1),
       deleteMany: jest.fn().mockResolvedValue({ count: 3 }),
@@ -74,5 +87,62 @@ describe('RankingService', () => {
     ]);
     const result = await service.getLastUpdates();
     expect(result.data.m1).toBeDefined();
+  });
+
+  describe('findProfessoresPorAvaliacao', () => {
+    const q = { municipio_id: 'm', ciclo_id: 'c', ano: 2026 };
+
+    it('agrupa por tipo (menor data_inicio) e busca só o snapshot mais recente >= data_inicio', async () => {
+      prisma.ranking_professor_diario.findMany.mockResolvedValue([
+        { tipo_avaliacao_id: 't1', professor_id: 'p', escola_id: 'e', professor: { nome: 'Ana' }, escola: { nome: 'Esc' } },
+      ]);
+      const r = await service.findProfessoresPorAvaliacao(q);
+      expect(r.avaliacoes).toEqual([
+        { id: 't1', nome: 'Avaliação 1', data_inicio: '2026-03-01' },
+        { id: 't2', nome: 'Avaliação 2', data_inicio: '2026-08-01' },
+      ]);
+      const gb = prisma.ranking_professor_diario.groupBy.mock.calls[0][0];
+      expect(gb.where.OR).toEqual([
+        { tipo_avaliacao_id: 't1', data_referencia: { gte: new Date('2026-03-01') } },
+        { tipo_avaliacao_id: 't2', data_referencia: { gte: new Date('2026-08-01') } },
+      ]);
+      const fm = prisma.ranking_professor_diario.findMany.mock.calls[0][0];
+      expect(fm.where.OR).toEqual([{ tipo_avaliacao_id: 't1', data_referencia: new Date('2026-06-10') }]);
+      expect(r.rows[0]).toMatchObject({ professor_nome: 'Ana', escola_nome: 'Esc' });
+    });
+
+    it('retorna vazio sem avaliações no ano', async () => {
+      prisma.avaliacao.findMany.mockResolvedValue([]);
+      expect(await service.findProfessoresPorAvaliacao(q)).toEqual({ avaliacoes: [], rows: [] });
+    });
+
+    it('aplica escola_id só nas linhas', async () => {
+      prisma.ranking_professor_diario.findMany.mockResolvedValue([]);
+      await service.findProfessoresPorAvaliacao({ ...q, escola_id: 'e' });
+      expect(prisma.ranking_professor_diario.groupBy.mock.calls[0][0].where.escola_id).toBeUndefined();
+      expect(prisma.ranking_professor_diario.findMany.mock.calls[0][0].where.escola_id).toBe('e');
+    });
+  });
+
+  describe('findEscolasPorAvaliacao', () => {
+    const q = { municipio_id: 'm', ciclo_id: 'c', ano: 2026 };
+
+    it('busca só o snapshot mais recente >= data_inicio por tipo e achata escola_nome', async () => {
+      prisma.ranking_escola_diario.findMany.mockResolvedValue([
+        { tipo_avaliacao_id: 't1', escola_id: 'e', escola: { nome: 'Esc' } },
+      ]);
+      const r = await service.findEscolasPorAvaliacao(q);
+      expect(r.avaliacoes).toHaveLength(2);
+      const gb = prisma.ranking_escola_diario.groupBy.mock.calls[0][0];
+      expect(gb.where.OR[0]).toEqual({ tipo_avaliacao_id: 't1', data_referencia: { gte: new Date('2026-03-01') } });
+      const fm = prisma.ranking_escola_diario.findMany.mock.calls[0][0];
+      expect(fm.where.OR).toEqual([{ tipo_avaliacao_id: 't1', data_referencia: new Date('2026-06-10') }]);
+      expect(r.rows[0]).toMatchObject({ escola_nome: 'Esc' });
+    });
+
+    it('retorna vazio sem avaliações no ano', async () => {
+      prisma.avaliacao.findMany.mockResolvedValue([]);
+      expect(await service.findEscolasPorAvaliacao(q)).toEqual({ avaliacoes: [], rows: [] });
+    });
   });
 });

@@ -426,3 +426,38 @@ describe('UsuarioService', () => {
     });
   });
 });
+
+describe('UsuarioService.ciclosPorMunicipio', () => {
+  const build = (escolas: any[], turmas: any[]) => {
+    const prisma = {
+      escola: { findMany: jest.fn().mockResolvedValue(escolas) },
+      turma: { findMany: jest.fn().mockResolvedValue(turmas) },
+    };
+    return { prisma, svc: new UsuarioService(prisma as any, {} as any) };
+  };
+
+  it('403 para professor', async () => {
+    const { svc, prisma } = build([], []);
+    await expect(svc.ciclosPorMunicipio(makeProfessor(), 'm')).rejects.toBeInstanceOf(ForbiddenException);
+    expect(prisma.escola.findMany).not.toHaveBeenCalled();
+  });
+
+  it('mapeia professor, auxiliar, coord_inf e coord_fund', async () => {
+    const { svc } = build(
+      [{ coord_inf_id: 'ci', coord_fund_id: 'cf' }],
+      [
+        { professora_id: 'p', auxiliar_id: 'a', ciclo: { nome: 'fundamental_1' } },
+        { professora_id: 'p', auxiliar_id: null, ciclo: { nome: 'fundamental_2' } },
+        { professora_id: 'ci', auxiliar_id: null, ciclo: { nome: 'fundamental_1' } },
+      ],
+    );
+    const { data } = await svc.ciclosPorMunicipio(makeAdmin(), 'm');
+    const by = Object.fromEntries(data.map((d) => [d.usuario_id, d.ciclos.sort()]));
+    expect(by).toEqual({
+      ci: ['ed_infantil_1', 'ed_infantil_2', 'fundamental_1'],
+      cf: ['fundamental_1', 'fundamental_2'],
+      p: ['fundamental_1', 'fundamental_2'],
+      a: ['fundamental_1'],
+    });
+  });
+});

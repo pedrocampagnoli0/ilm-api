@@ -238,7 +238,7 @@ export class ResultadoAvaliacaoService {
         turma_id: true,
         f2_nivel_leitura: true,
         f2_nivel_escrita: true,
-        aluno: { select: { id: true, nome: true, is_transferido: true } },
+        aluno: { select: { id: true, nome: true, is_transferido: true, is_inclusao: true } },
         turma: { select: { id: true, nome: true, escola_id: true, professora_id: true, ciclo_id: true } },
       },
     });

@@ -247,6 +247,104 @@ export class ResultadoAvaliacaoService {
   }
 
   /**
+   * Radar (2º ano) de vários municípios para o Painel da Assessora.
+   * Autorização: só administrador/ilm (únicos perfis com acesso ao painel); os
+   * municípios vêm do corpo porque "visualizar como" outra assessora é decidido
+   * no front. Demais perfis: 403. Uma única query (CTEs), sem RLS.
+   */
+  async radarAssessora(user: AuthenticatedUser, municipioIds: string[]) {
+    if (user.perfil !== 'administrador' && user.perfil !== 'ilm') {
+      throw new ForbiddenException('Acesso negado');
+    }
+    if (municipioIds.length === 0) return { data: [] };
+
+    const ids = [...new Set(municipioIds)];
+    const ano = new Date().getFullYear();
+    const rows = await this.prisma.$queryRaw<
+      Array<{
+        municipio_id: string;
+        nome: string;
+        alunos: bigint | number;
+        inclusao: bigint | number;
+        total: bigint | number;
+        avaliacao: string | null;
+      }>
+    >`
+      WITH ciclo2 AS (SELECT id FROM ciclo WHERE nome = 'fundamental_2'),
+      munis AS (
+        SELECT id, nome FROM municipio WHERE id = ANY(${ids}::uuid[])
+      ),
+      tot AS (
+        SELECT e.municipio_id, count(*) AS n
+        FROM aluno a
+        JOIN turma t ON t.id = a.turma_id
+        JOIN escola e ON e.id = t.escola_id
+        WHERE t.ativo AND NOT a.is_transferido
+          AND t.ciclo_id = (SELECT id FROM ciclo2)
+          AND e.municipio_id = ANY(${ids}::uuid[])
+        GROUP BY e.municipio_id
+      ),
+      -- tipos do ano com ao menos um resultado do 2º ano; o de nome "maior" (natural) vence
+      tipo_escolhido AS (
+        SELECT DISTINCT ON (av.municipio_id) av.municipio_id, ta.id AS tipo_id, ta.nome
+        FROM avaliacao av
+        JOIN tipo_avaliacao ta ON ta.id = av.tipo_id
+        WHERE av.municipio_id = ANY(${ids}::uuid[])
+          AND av.data_inicio >= make_date(${ano}::int, 1, 1)
+          AND av.data_inicio < make_date(${ano}::int + 1, 1, 1)
+          AND EXISTS (
+            SELECT 1 FROM resultado_avaliacao r
+            WHERE r.avaliacao_id = av.id AND r.ciclo_id = (SELECT id FROM ciclo2)
+          )
+        ORDER BY av.municipio_id,
+          (regexp_match(ta.nome, '[0-9]+'))[1]::int DESC NULLS LAST, ta.nome DESC
+      ),
+      radar AS (
+        SELECT DISTINCT te.municipio_id, r.aluno_id, a.is_inclusao
+        FROM tipo_escolhido te
+        JOIN avaliacao av ON av.municipio_id = te.municipio_id AND av.tipo_id = te.tipo_id
+          AND av.data_inicio >= make_date(${ano}::int, 1, 1)
+          AND av.data_inicio < make_date(${ano}::int + 1, 1, 1)
+        JOIN resultado_avaliacao r ON r.avaliacao_id = av.id
+          AND r.ciclo_id = (SELECT id FROM ciclo2)
+          AND r.ausente = false
+          AND (r.f2_nivel_leitura IN (1, 2) OR r.f2_nivel_escrita IN (1, 2))
+        JOIN aluno a ON a.id = r.aluno_id AND NOT a.is_transferido
+      ),
+      agg AS (
+        SELECT municipio_id, count(*) AS alunos, count(*) FILTER (WHERE is_inclusao) AS inclusao
+        FROM radar GROUP BY municipio_id
+      )
+      SELECT m.id AS municipio_id, m.nome,
+        COALESCE(agg.alunos, 0) AS alunos,
+        COALESCE(agg.inclusao, 0) AS inclusao,
+        COALESCE(tot.n, 0) AS total,
+        te.nome AS avaliacao
+      FROM munis m
+      LEFT JOIN agg ON agg.municipio_id = m.id
+      LEFT JOIN tot ON tot.municipio_id = m.id
+      LEFT JOIN tipo_escolhido te ON te.municipio_id = m.id
+      ORDER BY m.nome
+    `;
+
+    return {
+      data: rows.map((r) => {
+        const alunos = Number(r.alunos);
+        const total = Number(r.total);
+        return {
+          municipio_id: r.municipio_id,
+          nome: r.nome,
+          alunos,
+          inclusao: Number(r.inclusao),
+          total,
+          pct: total > 0 ? (alunos / total) * 100 : 0,
+          avaliacao: r.avaliacao,
+        };
+      }),
+    };
+  }
+
+  /**
    * Delete resultados for a student (only blank ones — respondido_em IS NULL).
    * Verifies the caller can delete the target aluno before proceeding.
    */

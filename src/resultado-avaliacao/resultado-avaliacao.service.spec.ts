@@ -47,6 +47,7 @@ function createMockPrisma() {
       count: jest.fn().mockResolvedValue(1),
     },
     $queryRawUnsafe: queryRawUnsafe,
+    $queryRaw: jest.fn().mockResolvedValue([]),
     $transaction: jest.fn().mockImplementation((argOrCallback: unknown) => {
       if (typeof argOrCallback === 'function') {
         const tx = {
@@ -194,6 +195,30 @@ describe('ResultadoAvaliacaoService', () => {
       await expect(
         service.deleteForAlunoAvaliacao(makeProfessor(), 'av-uuid', 'other-aluno'),
       ).rejects.toThrow(ForbiddenException);
+    });
+  });
+
+  describe('radarAssessora', () => {
+    it('nega para professor', async () => {
+      await expect(service.radarAssessora(makeProfessor(), ['m1'])).rejects.toThrow(ForbiddenException);
+      expect(prisma.$queryRaw).not.toHaveBeenCalled();
+    });
+
+    it('entrada vazia não consulta o banco', async () => {
+      expect(await service.radarAssessora(makeAdmin(), [])).toEqual({ data: [] });
+      expect(prisma.$queryRaw).not.toHaveBeenCalled();
+    });
+
+    it('mapeia linhas cruas (bigint) e calcula pct', async () => {
+      prisma.$queryRaw.mockResolvedValue([
+        { municipio_id: 'm1', nome: 'A', alunos: 5n, inclusao: 1n, total: 20n, avaliacao: 'Avaliação 10' },
+        { municipio_id: 'm2', nome: 'B', alunos: 0n, inclusao: 0n, total: 0n, avaliacao: null },
+      ]);
+      const r = await service.radarAssessora(makeAdmin(), ['m1', 'm2', 'm1']);
+      expect(r.data).toEqual([
+        { municipio_id: 'm1', nome: 'A', alunos: 5, inclusao: 1, total: 20, pct: 25, avaliacao: 'Avaliação 10' },
+        { municipio_id: 'm2', nome: 'B', alunos: 0, inclusao: 0, total: 0, pct: 0, avaliacao: null },
+      ]);
     });
   });
 });

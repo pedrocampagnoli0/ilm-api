@@ -28,6 +28,7 @@ import { AssessoraMunicipioModule } from './assessora-municipio/assessora-munici
 import { UsuarioImpersonatePermModule } from './usuario-impersonate-perm/usuario-impersonate-perm.module.js';
 import { WebhooksModule } from './webhooks/webhooks.module.js';
 import { NutrorSyncModule } from './nutror-sync/nutror-sync.module.js';
+import { FluenciaModule } from './fluencia/fluencia.module.js';
 import { FormacaoModule } from './formacao/formacao.module.js';
 import { ScheduleModule } from '@nestjs/schedule';
 
@@ -78,6 +79,7 @@ import { ScheduleModule } from '@nestjs/schedule';
     WebhooksModule,
     NutrorSyncModule,
     FormacaoModule,
+    FluenciaModule,
   ],
   providers: [{ provide: APP_GUARD, useClass: ThrottlerGuard }],
 })

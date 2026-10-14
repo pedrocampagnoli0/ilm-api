@@ -72,23 +72,13 @@ describe('calcularResultado — f1', () => {
 });
 
 describe('calcularResultado — f2', () => {
-  it('ppm soma palavras/tempo de todos os paragrafos do bloco "texto"', () => {
-    const respostas = [
-      r('texto', 'paragrafo', null, { palavras: 30 }, 30_000),
-      r('texto', 'paragrafo', null, { palavras: 30 }, 30_000),
-    ];
-    // 60 palavras em 60s = 60 ppm
-    expect(calcularResultado('f2', respostas).ppm).toBe(60);
+  it('não produz ppm (fluência grava o PPM), mesmo com paragrafo + tempo_ms', () => {
+    const respostas = [r('texto', 'paragrafo', null, { palavras: 30 }, 30_000)];
+    expect('ppm' in calcularResultado('f2', respostas)).toBe(false);
   });
 
-  it('omite ppm do resultado quando não há tempo registrado', () => {
-    expect(calcularResultado('f2', []).ppm).toBeUndefined();
-  });
-
-  it('compreensao_texto vem do bloco quiz', () => {
-    const respostas = [
-      r('quiz', 'quiz', true), r('quiz', 'quiz', true), r('quiz', 'quiz', false),
-    ];
-    expect(calcularResultado('f2', respostas).f2_compreensao_texto).toBe(2);
+  it('f2 não calcula compreensao_texto (fica o lançamento manual)', () => {
+    const respostas = [r('quiz', 'quiz', true), r('quiz', 'quiz', true)];
+    expect('f2_compreensao_texto' in calcularResultado('f2', respostas)).toBe(false);
   });
 });

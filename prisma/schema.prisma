@@ -412,6 +412,34 @@ model avaliacao_online_sessao {
   @@index([aluno_id], map: "idx_avaliacao_online_sessao_aluno")
 }
 
+// Aplicação da avaliação de fluência de leitura (2º ano). FKs escalares sem
+// @relation (evita back-relations em aluno/turma/usuario/avaliacao). A tabela é
+// criada por migration no repo lermais-auth.
+model fluencia_aplicacao {
+  id              String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  aluno_id        String   @db.Uuid
+  turma_id        String   @db.Uuid
+  aplicado_por    String   @db.Uuid
+  forma_numero    Int      @db.SmallInt
+  pseudo_total    Int      @db.SmallInt
+  pseudo_ultima   Int      @db.SmallInt
+  pseudo_erros    Int[]    @db.SmallInt
+  palavras_total  Int      @db.SmallInt
+  palavras_ultima Int      @db.SmallInt
+  palavras_erros  Int[]    @db.SmallInt
+  texto_total     Int      @db.SmallInt
+  texto_ultima    Int      @db.SmallInt
+  texto_erros     Int[]    @db.SmallInt
+  texto_segundos  Int      @db.SmallInt
+  prosodia        Int      @db.SmallInt
+  observacao      String?
+  avaliacao_id    String?  @db.Uuid
+  ppm_gravado     Int?     @db.SmallInt
+  iniciada_em     DateTime @db.Timestamptz(6)
+  concluida_em    DateTime @db.Timestamptz(6)
+  created_at      DateTime @default(now()) @db.Timestamptz(6)
+}
+
 model avaliacao_online_resposta {
   id            String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   sessao_id     String   @db.Uuid

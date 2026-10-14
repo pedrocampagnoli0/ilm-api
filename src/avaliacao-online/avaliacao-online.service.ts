@@ -21,6 +21,20 @@ interface TurmaAcesso {
   ciclo_nome: string;
 }
 
+/** Mesmas regras de ResultadoAvaliacaoService.upsertBatch: quem pode escrever nesta turma. */
+export function assertEscreveNaTurma(user: AuthenticatedUser, turmaId: string, escolaId: string): void {
+  if (user.perfil === 'administrador' || user.perfil === 'ilm') return;
+  if (user.perfil === 'professor' && !user.turmaIds.includes(turmaId)) {
+    throw new ForbiddenException('Acesso negado');
+  }
+  if (
+    ['coordenacao', 'secretaria', 'diretor'].includes(user.perfil) &&
+    !user.escolaIds.includes(escolaId)
+  ) {
+    throw new ForbiddenException('Acesso negado');
+  }
+}
+
 @Injectable()
 export class AvaliacaoOnlineService {
   constructor(
@@ -54,20 +68,7 @@ export class AvaliacaoOnlineService {
     }
 
     const isAdmin = user.perfil === 'administrador' || user.perfil === 'ilm';
-    if (!isAdmin) {
-      if (user.perfil === 'coordenacao' && !user.escolaIds.includes(turma.escola_id)) {
-        throw new ForbiddenException('Acesso negado');
-      }
-      if (user.perfil === 'professor' && !user.turmaIds.includes(turmaId)) {
-        throw new ForbiddenException('Acesso negado');
-      }
-      if (user.perfil === 'secretaria' && !user.escolaIds.includes(turma.escola_id)) {
-        throw new ForbiddenException('Acesso negado');
-      }
-      if (user.perfil === 'diretor' && !user.escolaIds.includes(turma.escola_id)) {
-        throw new ForbiddenException('Acesso negado');
-      }
-    }
+    assertEscreveNaTurma(user, turmaId, turma.escola_id);
 
     if (!turma.escola.municipio.avaliacao_online_ativa) {
       throw new ForbiddenException('Avaliação online não habilitada para este município.');
@@ -240,9 +241,8 @@ export class AvaliacaoOnlineService {
       preservados.f1_nivel_escrita = existente?.f1_nivel_escrita ?? null;
     } else {
       preservados.f2_nivel_escrita = existente?.f2_nivel_escrita ?? null;
-    }
-    if (existente?.ppm != null && calculado.ppm === undefined) {
-      preservados.ppm = existente.ppm;
+      // Não é mais medida aqui (o bloco de texto saiu do 2º ano): vale o lançamento manual.
+      preservados.f2_compreensao_texto = existente?.f2_compreensao_texto ?? null;
     }
 
     const resultado = await this.resultadoService.upsertBatch(user, {

@@ -156,6 +156,8 @@ export class FluenciaService {
     try {
       const aberta = await this.prisma.avaliacao.findFirst({
         where: { municipio_id: turma.escola.municipio_id, ativo: true },
+        // Municípios legados podem ter mais de uma aberta: vai na mais recente.
+        orderBy: { created_at: 'desc' },
         select: { id: true },
       });
       if (aberta) {

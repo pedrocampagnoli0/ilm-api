@@ -79,20 +79,6 @@ function nivelDe(respostas: RespostaAgg[], bloco: string): number | null {
   return melhor;
 }
 
-/** PPM = palavras / (tempo total em minutos), somado sobre os itens tipo "paragrafo" do bloco. */
-function ppmDoBloco(respostas: RespostaAgg[], bloco: string): number | null {
-  let palavras = 0;
-  let ms = 0;
-  for (const r of respostas) {
-    if (r.bloco !== bloco || r.tipo !== 'paragrafo') continue;
-    const p = (r.valor as { palavras?: unknown } | null)?.palavras;
-    if (typeof p === 'number') palavras += p;
-    if (typeof r.tempo_ms === 'number') ms += r.tempo_ms;
-  }
-  if (!ms || !palavras) return null;
-  return Math.round(palavras / (ms / 60000));
-}
-
 export interface ResultadoCalculado {
   [campo: string]: number | null;
 }
@@ -145,14 +131,11 @@ export function calcularResultado(
     nivelDe(respostas, 'texto') ?? nivelDe(respostas, 'frases') ?? nivelDe(respostas, 'palavras');
   const compreensaoFrases =
     contaCorretas(respostas, 'compreensao') + contaCorretas(respostas, 'cloze');
-  const compreensaoTexto = contaCorretas(respostas, 'quiz');
-  const ppm = ppmDoBloco(respostas, 'texto');
 
-  const resultado: ResultadoCalculado = {
+  return {
     f2_nivel_leitura: nivelLeitura,
     f2_compreensao_frases: Math.min(5, compreensaoFrases),
-    f2_compreensao_texto: Math.min(5, compreensaoTexto),
+    // f2_compreensao_texto (e o PPM) saíram da avaliação online: o 2º ano não
+    // lê mais o texto aqui — a fluência é medida pela avaliação de fluência.
   };
-  if (ppm !== null) resultado.ppm = ppm;
-  return resultado;
 }

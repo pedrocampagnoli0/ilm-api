@@ -98,7 +98,12 @@ function setup(
   const resultado = {
     upsertBatch: jest.fn().mockResolvedValue({ data: { saved_count: 1 } }),
   };
-  const service = new FluenciaService(prisma as never, resultado as never);
+  const ability = { createForUser: () => ({}) };
+  const service = new FluenciaService(
+    prisma as never,
+    resultado as never,
+    ability as never,
+  );
   return { service, prisma, resultado };
 }
 

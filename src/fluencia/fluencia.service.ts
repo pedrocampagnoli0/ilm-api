@@ -7,7 +7,9 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
+import { accessibleBy } from '@casl/prisma';
 import { PrismaService } from '../prisma/prisma.service.js';
+import { AbilityFactory } from '../common/casl/ability.factory.js';
 import { ResultadoAvaliacaoService } from '../resultado-avaliacao/resultado-avaliacao.service.js';
 import type { AuthenticatedUser } from '../common/auth/interfaces/authenticated-user.interface.js';
 import { assertEscreveNaTurma } from '../avaliacao-online/avaliacao-online.service.js';
@@ -16,6 +18,7 @@ import type {
   CriarAplicacaoDto,
   TarefaDto,
 } from './dto/criar-aplicacao.dto.js';
+import type { ListarAplicacoesQueryDto } from './dto/listar-aplicacoes-query.dto.js';
 
 export interface AplicacaoSalva {
   id: string;
@@ -49,7 +52,57 @@ export class FluenciaService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly resultadoService: ResultadoAvaliacaoService,
+    private readonly abilityFactory: AbilityFactory,
   ) {}
+
+  /**
+   * Aplicações por turmas (relatório de fluência) e/ou por aluno (formas já
+   * aplicadas), da mais antiga à mais recente. Mesmo escopo de leitura dos
+   * resultados: admin/ilm veem tudo, os demais só alunos acessíveis pelo CASL.
+   */
+  async listar(user: AuthenticatedUser, query: ListarAplicacoesQueryDto) {
+    const turmaIds = (query.turma_ids ?? '')
+      .split(',')
+      .map((s) => s.trim())
+      .filter(Boolean);
+    if (!turmaIds.length && !query.aluno_id) {
+      throw new BadRequestException('Informe turma_ids ou aluno_id.');
+    }
+    const ability = this.abilityFactory.createForUser(user);
+    const escopo: Prisma.fluencia_aplicacaoWhereInput =
+      user.perfil === 'administrador' || user.perfil === 'ilm'
+        ? {}
+        : { aluno: accessibleBy(ability, 'read').aluno };
+    return this.prisma.fluencia_aplicacao.findMany({
+      where: {
+        AND: [
+          escopo,
+          turmaIds.length ? { turma_id: { in: turmaIds } } : {},
+          query.aluno_id ? { aluno_id: query.aluno_id } : {},
+        ],
+      },
+      orderBy: [{ concluida_em: 'asc' }, { id: 'asc' }],
+      select: {
+        id: true,
+        aluno_id: true,
+        turma_id: true,
+        forma_numero: true,
+        pseudo_total: true,
+        pseudo_ultima: true,
+        pseudo_erros: true,
+        palavras_total: true,
+        palavras_ultima: true,
+        palavras_erros: true,
+        texto_total: true,
+        texto_ultima: true,
+        texto_erros: true,
+        texto_segundos: true,
+        prosodia: true,
+        observacao: true,
+        concluida_em: true,
+      },
+    });
+  }
 
   async criar(
     user: AuthenticatedUser,

@@ -92,21 +92,26 @@ export class FluenciaService {
         escola: {
           select: {
             municipio_id: true,
-            municipio: { select: { avaliacao_online_ativa: true } },
+            municipio: {
+              select: { avaliacao_online_ativa: true, faz_avaliacao: true, fluencia_1ano_ativa: true },
+            },
           },
         },
       },
     });
     if (!turma) throw new NotFoundException('Turma não encontrada');
     assertEscreveNaTurma(user, turma.id, turma.escola_id);
-    if (!turma.escola.municipio.avaliacao_online_ativa) {
+    const municipio = turma.escola.municipio;
+    if (!municipio.avaliacao_online_ativa || !municipio.faz_avaliacao) {
       throw new ForbiddenException(
-        'Avaliação online não habilitada para este município.',
+        'Avaliação de fluência não habilitada para este município.',
       );
     }
-    if (cicloGrupoDoNome(turma.ciclo.nome) !== 'f2') {
+    // 2º ano é padrão; 1º ano só com fluencia_1ano_ativa no município.
+    const grupo = cicloGrupoDoNome(turma.ciclo.nome);
+    if (grupo !== 'f2' && !(grupo === 'f1' && municipio.fluencia_1ano_ativa)) {
       throw new BadRequestException(
-        'A avaliação de fluência existe apenas para turmas do 2º ano.',
+        'A avaliação de fluência não está liberada para turmas deste ciclo.',
       );
     }
 
@@ -169,7 +174,11 @@ export class FluenciaService {
             },
           },
         });
-        // A RPC sobrescreve ausente + f2_* com o payload; devolvemos o que já existe.
+        // A RPC sobrescreve ausente + campos do ciclo (f1_*/f2_*) com o payload;
+        // devolvemos o que já existe para não apagar o lançamento manual.
+        const doCiclo = Object.fromEntries(
+          Object.entries(atual ?? {}).filter(([k]) => k.startsWith(`${grupo}_`)),
+        );
         await this.resultadoService.upsertBatch(user, {
           avaliacao_id: aberta.id,
           turma_id: turma.id,
@@ -177,10 +186,7 @@ export class FluenciaService {
             {
               aluno_id: dto.aluno_id,
               ausente: atual?.ausente ?? false,
-              f2_nivel_leitura: atual?.f2_nivel_leitura ?? null,
-              f2_nivel_escrita: atual?.f2_nivel_escrita ?? null,
-              f2_compreensao_frases: atual?.f2_compreensao_frases ?? null,
-              f2_compreensao_texto: atual?.f2_compreensao_texto ?? null,
+              ...doCiclo,
               ppm,
             },
           ],

@@ -44,6 +44,8 @@ function setup(
     ciclo?: string;
     transferido?: boolean;
     aberta?: boolean;
+    fazAvaliacao?: boolean;
+    fluencia1ano?: boolean;
   } = {},
 ) {
   const {
@@ -51,6 +53,8 @@ function setup(
     ciclo = 'fundamental_2',
     transferido = false,
     aberta = true,
+    fazAvaliacao = true,
+    fluencia1ano = false,
   } = opts;
   const prisma = {
     fluencia_aplicacao: {
@@ -70,7 +74,11 @@ function setup(
         ciclo: { nome: ciclo },
         escola: {
           municipio_id: 'muni',
-          municipio: { avaliacao_online_ativa: flag },
+          municipio: {
+            avaliacao_online_ativa: flag,
+            faz_avaliacao: fazAvaliacao,
+            fluencia_1ano_ativa: fluencia1ano,
+          },
         },
       }),
     },
@@ -132,12 +140,55 @@ describe('FluenciaService.criar', () => {
     );
   });
 
-  it('turma que não é do 2º ano -> 400', async () => {
+  it('município com faz_avaliacao = false -> 403', async () => {
+    const { service, prisma } = setup({ fazAvaliacao: false });
+    await expect(service.criar(user, dto())).rejects.toBeInstanceOf(
+      ForbiddenException,
+    );
+    expect(prisma.fluencia_aplicacao.create).not.toHaveBeenCalled();
+  });
+
+  it('1º ano sem fluencia_1ano_ativa -> 400', async () => {
     const { service, prisma } = setup({ ciclo: 'fundamental_1' });
     await expect(service.criar(user, dto())).rejects.toBeInstanceOf(
       BadRequestException,
     );
     expect(prisma.fluencia_aplicacao.create).not.toHaveBeenCalled();
+  });
+
+  it('1º ano com fluencia_1ano_ativa: salva e preserva só os campos f1_*', async () => {
+    const { service, prisma, resultado } = setup({
+      ciclo: 'fundamental_1',
+      fluencia1ano: true,
+    });
+    prisma.resultado_avaliacao.findUnique.mockResolvedValue({
+      ausente: false,
+      f1_nivel_leitura: 2,
+      f1_nivel_escrita: 1,
+      ppm: null,
+    });
+    const r = await service.criar(user, dto());
+    expect(r.created).toBe(true);
+    expect(resultado.upsertBatch).toHaveBeenCalledWith(user, {
+      avaliacao_id: 'av',
+      turma_id: 'tur',
+      resultados: [
+        {
+          aluno_id: ALUNO,
+          ausente: false,
+          f1_nivel_leitura: 2,
+          f1_nivel_escrita: 1,
+          ppm: 91,
+        },
+      ],
+    });
+  });
+
+  it('infantil -> 400 mesmo com fluencia_1ano_ativa', async () => {
+    const { service } = setup({ ciclo: 'infantil_2', fluencia1ano: true });
+    await expect(service.criar(user, dto())).rejects.toBeInstanceOf(
+      BadRequestException,
+    );
   });
 
   it('aluno transferido -> 400', async () => {

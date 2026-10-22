@@ -35,4 +35,22 @@ export class CreateMunicipioDto {
   @IsString()
   @MaxLength(5000)
   historico?: string | null;
+
+  @ApiPropertyOptional({
+    description:
+      'Município realiza avaliações. false = fora dos rankings, do radar e do % de conclusão do painel da assessora',
+    default: true,
+  })
+  @IsOptional()
+  @IsBoolean()
+  faz_avaliacao?: boolean;
+
+  @ApiPropertyOptional({
+    description:
+      'Libera a avaliação de fluência ao 1º ano (o 2º ano é padrão quando faz_avaliacao)',
+    default: false,
+  })
+  @IsOptional()
+  @IsBoolean()
+  fluencia_1ano_ativa?: boolean;
 }

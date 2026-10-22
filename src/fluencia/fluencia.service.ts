@@ -7,7 +7,9 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
+import { accessibleBy } from '@casl/prisma';
 import { PrismaService } from '../prisma/prisma.service.js';
+import { AbilityFactory } from '../common/casl/ability.factory.js';
 import { ResultadoAvaliacaoService } from '../resultado-avaliacao/resultado-avaliacao.service.js';
 import type { AuthenticatedUser } from '../common/auth/interfaces/authenticated-user.interface.js';
 import { assertEscreveNaTurma } from '../avaliacao-online/avaliacao-online.service.js';
@@ -16,6 +18,7 @@ import type {
   CriarAplicacaoDto,
   TarefaDto,
 } from './dto/criar-aplicacao.dto.js';
+import type { ListarAplicacoesQueryDto } from './dto/listar-aplicacoes-query.dto.js';
 
 export interface AplicacaoSalva {
   id: string;
@@ -49,7 +52,57 @@ export class FluenciaService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly resultadoService: ResultadoAvaliacaoService,
+    private readonly abilityFactory: AbilityFactory,
   ) {}
+
+  /**
+   * Aplicações por turmas (relatório de fluência) e/ou por aluno (formas já
+   * aplicadas), da mais antiga à mais recente. Mesmo escopo de leitura dos
+   * resultados: admin/ilm veem tudo, os demais só alunos acessíveis pelo CASL.
+   */
+  async listar(user: AuthenticatedUser, query: ListarAplicacoesQueryDto) {
+    const turmaIds = (query.turma_ids ?? '')
+      .split(',')
+      .map((s) => s.trim())
+      .filter(Boolean);
+    if (!turmaIds.length && !query.aluno_id) {
+      throw new BadRequestException('Informe turma_ids ou aluno_id.');
+    }
+    const ability = this.abilityFactory.createForUser(user);
+    const escopo: Prisma.fluencia_aplicacaoWhereInput =
+      user.perfil === 'administrador' || user.perfil === 'ilm'
+        ? {}
+        : { aluno: accessibleBy(ability, 'read').aluno };
+    return this.prisma.fluencia_aplicacao.findMany({
+      where: {
+        AND: [
+          escopo,
+          turmaIds.length ? { turma_id: { in: turmaIds } } : {},
+          query.aluno_id ? { aluno_id: query.aluno_id } : {},
+        ],
+      },
+      orderBy: [{ concluida_em: 'asc' }, { id: 'asc' }],
+      select: {
+        id: true,
+        aluno_id: true,
+        turma_id: true,
+        forma_numero: true,
+        pseudo_total: true,
+        pseudo_ultima: true,
+        pseudo_erros: true,
+        palavras_total: true,
+        palavras_ultima: true,
+        palavras_erros: true,
+        texto_total: true,
+        texto_ultima: true,
+        texto_erros: true,
+        texto_segundos: true,
+        prosodia: true,
+        observacao: true,
+        concluida_em: true,
+      },
+    });
+  }
 
   async criar(
     user: AuthenticatedUser,
@@ -92,21 +145,26 @@ export class FluenciaService {
         escola: {
           select: {
             municipio_id: true,
-            municipio: { select: { avaliacao_online_ativa: true } },
+            municipio: {
+              select: { avaliacao_online_ativa: true, faz_avaliacao: true, fluencia_1ano_ativa: true },
+            },
           },
         },
       },
     });
     if (!turma) throw new NotFoundException('Turma não encontrada');
     assertEscreveNaTurma(user, turma.id, turma.escola_id);
-    if (!turma.escola.municipio.avaliacao_online_ativa) {
+    const municipio = turma.escola.municipio;
+    if (!municipio.avaliacao_online_ativa || !municipio.faz_avaliacao) {
       throw new ForbiddenException(
-        'Avaliação online não habilitada para este município.',
+        'Avaliação de fluência não habilitada para este município.',
       );
     }
-    if (cicloGrupoDoNome(turma.ciclo.nome) !== 'f2') {
+    // 2º ano é padrão; 1º ano só com fluencia_1ano_ativa no município.
+    const grupo = cicloGrupoDoNome(turma.ciclo.nome);
+    if (grupo !== 'f2' && !(grupo === 'f1' && municipio.fluencia_1ano_ativa)) {
       throw new BadRequestException(
-        'A avaliação de fluência existe apenas para turmas do 2º ano.',
+        'A avaliação de fluência não está liberada para turmas deste ciclo.',
       );
     }
 
@@ -169,7 +227,11 @@ export class FluenciaService {
             },
           },
         });
-        // A RPC sobrescreve ausente + f2_* com o payload; devolvemos o que já existe.
+        // A RPC sobrescreve ausente + campos do ciclo (f1_*/f2_*) com o payload;
+        // devolvemos o que já existe para não apagar o lançamento manual.
+        const doCiclo = Object.fromEntries(
+          Object.entries(atual ?? {}).filter(([k]) => k.startsWith(`${grupo}_`)),
+        );
         await this.resultadoService.upsertBatch(user, {
           avaliacao_id: aberta.id,
           turma_id: turma.id,
@@ -177,10 +239,7 @@ export class FluenciaService {
             {
               aluno_id: dto.aluno_id,
               ausente: atual?.ausente ?? false,
-              f2_nivel_leitura: atual?.f2_nivel_leitura ?? null,
-              f2_nivel_escrita: atual?.f2_nivel_escrita ?? null,
-              f2_compreensao_frases: atual?.f2_compreensao_frases ?? null,
-              f2_compreensao_texto: atual?.f2_compreensao_texto ?? null,
+              ...doCiclo,
               ppm,
             },
           ],

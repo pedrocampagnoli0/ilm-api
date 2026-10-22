@@ -1,8 +1,10 @@
 import {
   Body,
   Controller,
+  Get,
   HttpStatus,
   Post,
+  Query,
   Res,
   UseGuards,
 } from '@nestjs/common';
@@ -13,6 +15,7 @@ import { CurrentUser } from '../common/auth/decorators/current-user.decorator.js
 import type { AuthenticatedUser } from '../common/auth/interfaces/authenticated-user.interface.js';
 import { FluenciaService } from './fluencia.service.js';
 import { CriarAplicacaoDto } from './dto/criar-aplicacao.dto.js';
+import { ListarAplicacoesQueryDto } from './dto/listar-aplicacoes-query.dto.js';
 
 @ApiTags('Fluência')
 @ApiBearerAuth()
@@ -20,6 +23,18 @@ import { CriarAplicacaoDto } from './dto/criar-aplicacao.dto.js';
 @Controller('fluencia/aplicacoes')
 export class FluenciaController {
   constructor(private readonly service: FluenciaService) {}
+
+  @Get()
+  @ApiOperation({
+    summary:
+      'Lista aplicações de fluência por turmas (relatório) ou por aluno (formas já aplicadas), no escopo de acesso do usuário',
+  })
+  async listar(
+    @CurrentUser() user: AuthenticatedUser,
+    @Query() query: ListarAplicacoesQueryDto,
+  ) {
+    return { data: await this.service.listar(user, query) };
+  }
 
   @Post()
   @ApiOperation({

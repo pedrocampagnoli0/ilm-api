@@ -121,6 +121,8 @@ export class MunicipioService {
         ativo: dto.ativo ?? true,
         logo_municipio_url: dto.logo_municipio_url ?? null,
         historico: dto.historico ?? null,
+        faz_avaliacao: dto.faz_avaliacao ?? true,
+        fluencia_1ano_ativa: dto.fluencia_1ano_ativa ?? false,
       },
     });
 
@@ -145,6 +147,8 @@ export class MunicipioService {
     if (dto.ativo !== undefined) data.ativo = dto.ativo;
     if ('logo_municipio_url' in dto) data.logo_municipio_url = dto.logo_municipio_url ?? null;
     if ('historico' in dto) data.historico = dto.historico ?? null;
+    if (dto.faz_avaliacao !== undefined) data.faz_avaliacao = dto.faz_avaliacao;
+    if (dto.fluencia_1ano_ativa !== undefined) data.fluencia_1ano_ativa = dto.fluencia_1ano_ativa;
 
     // Check duplicate name if nome or uf changed
     if (dto.nome || dto.uf_sigla) {

@@ -272,7 +272,7 @@ export class ResultadoAvaliacaoService {
     >`
       WITH ciclo2 AS (SELECT id FROM ciclo WHERE nome = 'fundamental_2'),
       munis AS (
-        SELECT id, nome FROM municipio WHERE id = ANY(${ids}::uuid[])
+        SELECT id, nome FROM municipio WHERE id = ANY(${ids}::uuid[]) AND faz_avaliacao
       ),
       tot AS (
         SELECT e.municipio_id, count(*) AS n

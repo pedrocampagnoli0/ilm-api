@@ -67,6 +67,8 @@ model municipio {
   historico           String?
   timezone            String    @default("America/Araguaina")
   avaliacao_online_ativa Boolean @default(false)
+  faz_avaliacao       Boolean   @default(true)
+  fluencia_1ano_ativa Boolean   @default(false)
   created_at          DateTime  @default(now()) @db.Timestamptz(6)
   updated_at          DateTime  @default(now()) @updatedAt @db.Timestamptz(6)
 
@@ -296,6 +298,7 @@ model aluno {
   resultados resultado_avaliacao[]
   import_batch_items import_aluno_batch_item[]
   sessoes_online avaliacao_online_sessao[]
+  fluencia_aplicacoes fluencia_aplicacao[]
 
   @@index([turma_id])
   @@index([is_transferido], map: "idx_aluno_is_transferido")
@@ -413,8 +416,8 @@ model avaliacao_online_sessao {
 }
 
 // Aplicação da avaliação de fluência de leitura (2º ano). FKs escalares sem
-// @relation (evita back-relations em aluno/turma/usuario/avaliacao). A tabela é
-// criada por migration no repo lermais-auth.
+// @relation só com aluno (escopo CASL da listagem); turma/usuario/avaliacao
+// ficam sem back-relation. A tabela é criada por migration no repo lermais-auth.
 model fluencia_aplicacao {
   id              String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   aluno_id        String   @db.Uuid
@@ -438,6 +441,8 @@ model fluencia_aplicacao {
   iniciada_em     DateTime @db.Timestamptz(6)
   concluida_em    DateTime @db.Timestamptz(6)
   created_at      DateTime @default(now()) @db.Timestamptz(6)
+
+  aluno aluno @relation(fields: [aluno_id], references: [id])
 }
 
 model avaliacao_online_resposta {

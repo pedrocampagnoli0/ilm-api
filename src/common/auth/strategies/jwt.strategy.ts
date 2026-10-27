@@ -129,6 +129,10 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     if (!usuario.ativo) {
       throw new UnauthorizedException('Usuário não encontrado ou inativo');
     }
+    // valido_ate é DATE (último dia inclusive); compara em UTC como o Postgres faz com CURRENT_DATE.
+    if (usuario.valido_ate && usuario.valido_ate.toISOString().slice(0, 10) < new Date().toISOString().slice(0, 10)) {
+      throw new UnauthorizedException('Acesso expirado');
+    }
 
     const escolaIdSet = new Set<string>();
     usuario.escolas_as_coord_inf.forEach((e) => escolaIdSet.add(e.id));

@@ -1,4 +1,4 @@
-import { IsBoolean, IsEmail, IsEnum, IsNotEmpty, IsOptional, IsString, IsUUID, MaxLength, MinLength } from 'class-validator';
+import { ArrayMaxSize, IsArray, IsBoolean, IsDateString, IsEmail, IsEnum, IsNotEmpty, IsOptional, IsString, IsUUID, MaxLength, MinLength } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
 export class CreateUsuarioDto {
@@ -38,4 +38,17 @@ export class CreateUsuarioDto {
   @IsString()
   @MaxLength(20)
   telefone?: string | null;
+
+  @ApiPropertyOptional({ example: '2026-12-31', description: 'Último dia de acesso (perfil visitante). NULL = sem validade.' })
+  @IsOptional()
+  @IsDateString()
+  valido_ate?: string | null;
+
+  @ApiPropertyOptional({ type: [String], description: 'Chaves dos flipbooks liberados (perfil visitante).' })
+  @IsOptional()
+  @IsArray()
+  @ArrayMaxSize(50)
+  @IsString({ each: true })
+  @MaxLength(50, { each: true })
+  flipbooks?: string[] | null;
 }

@@ -4,7 +4,8 @@ export type PerfilName =
   | 'secretaria'
   | 'diretor'
   | 'coordenacao'
-  | 'professor';
+  | 'professor'
+  | 'visitante';
 
 export interface AuthenticatedUser {
   id: string; // usuario.id

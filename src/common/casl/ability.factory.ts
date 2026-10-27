@@ -18,6 +18,7 @@ import type {
   formacao_evento as FormacaoEvento,
   formacao_lote as FormacaoLote,
   formacao_venda as FormacaoVenda,
+  flipbook as Flipbook,
 } from '@prisma/client';
 import { Injectable } from '@nestjs/common';
 import type { AuthenticatedUser } from '../auth/interfaces/authenticated-user.interface.js';
@@ -37,6 +38,7 @@ type AppSubjects =
       formacao_evento: FormacaoEvento;
       formacao_lote: FormacaoLote;
       formacao_venda: FormacaoVenda;
+      flipbook: Flipbook;
     }>
   | 'all';
 
@@ -213,7 +215,8 @@ function defineUsuarioRules(
       break;
 
     case 'professor':
-      // Professor can only read themselves
+    case 'visitante':
+      // Professor/visitante can only read themselves
       can('read', 'usuario', { id: user.id });
       break;
 
@@ -364,6 +367,18 @@ function defineFeriadoRules(
   }
 }
 
+function defineFlipbookRules(
+  can: Can,
+  _cannot: Cannot,
+  user: AuthenticatedUser,
+) {
+  // Leitura é filtrada no FlipbookService (não-admin só vê os liberados em usuario.flipbooks).
+  can('read', 'flipbook');
+  if (user.perfil === 'administrador' || user.perfil === 'ilm') {
+    can('manage', 'flipbook');
+  }
+}
+
 function defineContatoPrincipalRules(
   can: Can,
   cannot: Cannot,
@@ -443,6 +458,7 @@ export class AbilityFactory {
     defineObservacaoRules(can, cannot, user);
     defineTentativaContatoRules(can, cannot, user);
     defineFeriadoRules(can, cannot, user);
+    defineFlipbookRules(can, cannot, user);
     defineContatoPrincipalRules(can, cannot, user);
     defineFormacaoRules(can, cannot, user);
 

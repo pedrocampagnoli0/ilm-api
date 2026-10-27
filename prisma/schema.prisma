@@ -756,6 +756,14 @@ model feriado {
   @@index([uf_sigla], map: "idx_feriado_uf")
 }
 
+model flipbook {
+  id         String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  titulo     String
+  url        String
+  ativo      Boolean  @default(true)
+  created_at DateTime @default(now()) @db.Timestamptz(6)
+}
+
 model assessora_municipio {
   usuario_id   String   @db.Uuid
   municipio_id String   @db.Uuid

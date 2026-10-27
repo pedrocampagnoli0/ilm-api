@@ -213,7 +213,8 @@ function defineUsuarioRules(
       break;
 
     case 'professor':
-      // Professor can only read themselves
+    case 'visitante':
+      // Professor/visitante can only read themselves
       can('read', 'usuario', { id: user.id });
       break;
 

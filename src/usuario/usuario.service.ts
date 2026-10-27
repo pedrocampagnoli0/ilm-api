@@ -249,6 +249,8 @@ export class UsuarioService {
         ativo: dto.ativo ?? true,
         tamanho_camiseta: dto.tamanho_camiseta ?? null,
         telefone,
+        valido_ate: dto.valido_ate ? new Date(dto.valido_ate) : null,
+        flipbooks: dto.flipbooks ?? [],
       },
       include: USUARIO_INCLUDE,
     });
@@ -292,6 +294,8 @@ export class UsuarioService {
     if (dto.ativo !== undefined) data.ativo = dto.ativo;
     if ('tamanho_camiseta' in dto) data.tamanho_camiseta = dto.tamanho_camiseta ?? null;
     if ('telefone' in dto) data.telefone = normalizeTelefone(dto.telefone);
+    if ('valido_ate' in dto) data.valido_ate = dto.valido_ate ? new Date(dto.valido_ate) : null;
+    if ('flipbooks' in dto) data.flipbooks = dto.flipbooks ?? [];
 
     const updated = await this.prisma.usuario.update({
       where: { id },

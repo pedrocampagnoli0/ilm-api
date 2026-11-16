@@ -13,6 +13,15 @@ import type { ListResultadosQueryDto } from './dto/list-resultados-query.dto.js'
 import type { UpsertBatchDto } from './dto/upsert-batch.dto.js';
 import { PaginatedResponseDto } from '../common/dto/paginated-response.dto.js';
 import { buildPrismaSelect } from '../common/utils/build-prisma-select.js';
+import {
+  PONTOS_POR_ALUNO,
+  PROGRESSO_POR_TURMA_SQL,
+  escolherAvaliacaoAtual,
+  mapProgressoTurma,
+  pctProgresso,
+  type ProgressoTurma,
+  type ProgressoTurmaRow,
+} from './progresso.js';
 
 /**
  * Tenant-scope filter for resultado_avaliacao.
@@ -342,6 +351,175 @@ export class ResultadoAvaliacaoService {
           avaliacao: r.avaliacao,
         };
       }),
+    };
+  }
+
+  /**
+   * "% Conclusão" por turma × avaliação (ver `progresso.ts`). Calculado na
+   * leitura, numa query só — substitui o download de todas as linhas de
+   * `resultado_avaliacao` que o Painel da Secretaria e o Relatório Agregador
+   * faziam para contar no navegador.
+   *
+   * Escopo: administrador/ilm veem qualquer turma; os demais só as que o CASL
+   * libera para leitura. Sem `turma_ids`, entram as turmas ativas de escolas
+   * ativas.
+   */
+  async progressoPorTurma(
+    user: AuthenticatedUser,
+    avaliacaoIds: string[],
+    turmaIdsPedidas?: string[],
+  ): Promise<{ data: ProgressoTurma[] }> {
+    const avaliacoes = [...new Set(avaliacaoIds)];
+    if (avaliacoes.length === 0) return { data: [] };
+
+    let turmas: string[] | null = turmaIdsPedidas?.length
+      ? [...new Set(turmaIdsPedidas)]
+      : null;
+
+    if (user.perfil !== 'administrador' && user.perfil !== 'ilm') {
+      const ability = this.abilityFactory.createForUser(user);
+      const visiveis = await this.prisma.turma.findMany({
+        where: {
+          AND: [
+            accessibleBy(ability, 'read').turma,
+            turmas
+              ? { id: { in: turmas } }
+              : { ativo: true, escola: { ativo: true } },
+          ],
+        },
+        select: { id: true },
+      });
+      if (visiveis.length === 0) return { data: [] };
+      turmas = visiveis.map((t) => t.id);
+    }
+
+    const rows = await this.prisma.$queryRawUnsafe<ProgressoTurmaRow[]>(
+      PROGRESSO_POR_TURMA_SQL,
+      avaliacoes,
+      turmas,
+    );
+    return { data: rows.map(mapProgressoTurma) };
+  }
+
+  /**
+   * "% Conclusão" por município para o Painel da Assessora — ocupa o lugar do
+   * snapshot `municipio_avaliacao_pct` (mantido por gatilho a cada aluno salvo)
+   * e do RPC `municipio_avaliacoes_historico`, com a mesma regra das telas de
+   * turma. Padrão: só a avaliação que representa cada município hoje;
+   * `historico`: todas, da mais recente para a mais antiga.
+   *
+   * Autorização igual à do radar: só administrador/ilm; os municípios vêm do
+   * corpo porque "visualizar como" outra assessora é decidido no front.
+   */
+  async progressoMunicipios(
+    user: AuthenticatedUser,
+    municipioIds: string[],
+    historico = false,
+  ) {
+    if (user.perfil !== 'administrador' && user.perfil !== 'ilm') {
+      throw new ForbiddenException('Acesso negado');
+    }
+    const ids = [...new Set(municipioIds)];
+    if (ids.length === 0) return { data: [] };
+
+    const todas = (
+      await this.prisma.avaliacao.findMany({
+        where: { municipio_id: { in: ids } },
+        select: {
+          id: true,
+          municipio_id: true,
+          ativo: true,
+          closed_at: true,
+          data_inicio: true,
+          data_termino: true,
+          created_at: true,
+          tipo_avaliacao: { select: { nome: true } },
+        },
+      })
+    ).map(({ tipo_avaliacao, ...a }) => ({
+      ...a,
+      tipo_nome: tipo_avaliacao?.nome ?? null,
+    }));
+
+    const porMunicipio = new Map<string, typeof todas>();
+    for (const a of todas) {
+      const lista = porMunicipio.get(a.municipio_id);
+      if (lista) lista.push(a);
+      else porMunicipio.set(a.municipio_id, [a]);
+    }
+
+    const atualPorMunicipio = new Map<string, string>();
+    for (const [municipioId, lista] of porMunicipio) {
+      const atual = escolherAvaliacaoAtual(lista);
+      if (atual) atualPorMunicipio.set(municipioId, atual.id);
+    }
+
+    const escolhidas = historico
+      ? todas
+      : todas.filter((a) => atualPorMunicipio.get(a.municipio_id) === a.id);
+    if (escolhidas.length === 0) return { data: [] };
+
+    const rows = await this.prisma.$queryRawUnsafe<ProgressoTurmaRow[]>(
+      PROGRESSO_POR_TURMA_SQL,
+      escolhidas.map((a) => a.id),
+      null,
+    );
+
+    const soma = new Map<
+      string,
+      {
+        considerados: number;
+        enviados: number;
+        completos: number;
+        pontos: number;
+      }
+    >();
+    for (const row of rows.map(mapProgressoTurma)) {
+      const s = soma.get(row.avaliacao_id) ?? {
+        considerados: 0,
+        enviados: 0,
+        completos: 0,
+        pontos: 0,
+      };
+      s.considerados += row.considerados;
+      s.enviados += row.enviados;
+      s.completos += row.completos;
+      s.pontos += row.pontos;
+      soma.set(row.avaliacao_id, s);
+    }
+
+    const dia = (d: Date | null) => (d ? d.toISOString().slice(0, 10) : null);
+    const tempo = (d: Date | null) => (d ? d.getTime() : -Infinity);
+
+    return {
+      data: escolhidas
+        .sort(
+          (a, b) =>
+            tempo(b.data_inicio) - tempo(a.data_inicio) ||
+            b.created_at.getTime() - a.created_at.getTime(),
+        )
+        .map((a) => {
+          const s = soma.get(a.id) ?? {
+            considerados: 0,
+            enviados: 0,
+            completos: 0,
+            pontos: 0,
+          };
+          const pontosMax = s.considerados * PONTOS_POR_ALUNO;
+          return {
+            municipio_id: a.municipio_id,
+            avaliacao_id: a.id,
+            tipo_nome: a.tipo_nome,
+            data_inicio: dia(a.data_inicio),
+            data_termino: dia(a.data_termino),
+            ativo: a.ativo,
+            closed_at: a.closed_at,
+            atual: atualPorMunicipio.get(a.municipio_id) === a.id,
+            ...s,
+            pontos_max: pontosMax,
+            pct: pctProgresso(s.pontos, pontosMax),
+          };
+        }),
     };
   }
 

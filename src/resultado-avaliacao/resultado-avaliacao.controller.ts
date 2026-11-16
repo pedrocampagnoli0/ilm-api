@@ -15,6 +15,10 @@ import { CurrentUser } from '../common/auth/decorators/current-user.decorator.js
 import type { AuthenticatedUser } from '../common/auth/interfaces/authenticated-user.interface.js';
 import { ResultadoAvaliacaoService } from './resultado-avaliacao.service.js';
 import { ListResultadosQueryDto } from './dto/list-resultados-query.dto.js';
+import {
+  ProgressoMunicipiosDto,
+  ProgressoTurmasDto,
+} from './dto/progresso.dto.js';
 import { RadarAssessoraDto } from './dto/radar-assessora.dto.js';
 import { UpsertBatchDto } from './dto/upsert-batch.dto.js';
 
@@ -59,6 +63,37 @@ export class ResultadoAvaliacaoController {
     @Body() dto: RadarAssessoraDto,
   ) {
     return this.resultadoService.radarAssessora(user, dto.municipio_ids);
+  }
+
+  @Post('progresso')
+  @ApiOperation({
+    summary:
+      '% de conclusão por turma × avaliação (proporcional aos campos preenchidos)',
+  })
+  progressoPorTurma(
+    @CurrentUser() user: AuthenticatedUser,
+    @Body() dto: ProgressoTurmasDto,
+  ) {
+    return this.resultadoService.progressoPorTurma(
+      user,
+      dto.avaliacao_ids,
+      dto.turma_ids,
+    );
+  }
+
+  @Post('progresso-municipios')
+  @ApiOperation({
+    summary: '% de conclusão por município (Painel da Assessora; admin/ilm)',
+  })
+  progressoMunicipios(
+    @CurrentUser() user: AuthenticatedUser,
+    @Body() dto: ProgressoMunicipiosDto,
+  ) {
+    return this.resultadoService.progressoMunicipios(
+      user,
+      dto.municipio_ids,
+      dto.historico,
+    );
   }
 
   @Get('history/:turmaId/:avaliacaoId')

@@ -16,6 +16,7 @@ import { AvaliacaoModule } from './avaliacao/avaliacao.module.js';
 import { ResultadoAvaliacaoModule } from './resultado-avaliacao/resultado-avaliacao.module.js';
 import { AvaliacaoOnlineModule } from './avaliacao-online/avaliacao-online.module.js';
 import { LogLoginModule } from './log-login/log-login.module.js';
+import { AcessoPaginaModule } from './acesso-pagina/acesso-pagina.module.js';
 import { RankingModule } from './ranking/ranking.module.js';
 import { ImportBulkModule } from './import-bulk/import-bulk.module.js';
 import { ReuniaoModule } from './reuniao/reuniao.module.js';
@@ -67,6 +68,7 @@ import { ScheduleModule } from '@nestjs/schedule';
     ResultadoAvaliacaoModule,
     AvaliacaoOnlineModule,
     LogLoginModule,
+    AcessoPaginaModule,
     RankingModule,
     ImportBulkModule,
     ReuniaoModule,

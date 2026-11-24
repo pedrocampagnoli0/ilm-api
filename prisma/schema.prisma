@@ -513,6 +513,17 @@ model log_tentativa_login {
   criado_em     DateTime         @default(now()) @db.Timestamptz(6)
 }
 
+model usuario_acesso_pagina {
+  usuario_id      String   @db.Uuid
+  data            DateTime @db.Date
+  pagina          String
+  primeiro_acesso DateTime @db.Timestamptz(6)
+  ultimo_acesso   DateTime @db.Timestamptz(6)
+  hits            Int      @default(1)
+
+  @@id([usuario_id, data, pagina])
+}
+
 model ranking_professor_diario {
   id                  String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   data_referencia     DateTime  @db.Date

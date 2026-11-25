@@ -69,6 +69,7 @@ model municipio {
   avaliacao_online_ativa Boolean @default(false)
   faz_avaliacao       Boolean   @default(true)
   fluencia_1ano_ativa Boolean   @default(false)
+  fluencia_ativa      Boolean   @default(true)
   created_at          DateTime  @default(now()) @db.Timestamptz(6)
   updated_at          DateTime  @default(now()) @updatedAt @db.Timestamptz(6)
 

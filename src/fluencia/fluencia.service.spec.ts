@@ -46,6 +46,7 @@ function setup(
     aberta?: boolean;
     fazAvaliacao?: boolean;
     fluencia1ano?: boolean;
+    fluenciaAtiva?: boolean;
   } = {},
 ) {
   const {
@@ -55,6 +56,7 @@ function setup(
     aberta = true,
     fazAvaliacao = true,
     fluencia1ano = false,
+    fluenciaAtiva = true,
   } = opts;
   const prisma = {
     fluencia_aplicacao: {
@@ -78,6 +80,7 @@ function setup(
             avaliacao_online_ativa: flag,
             faz_avaliacao: fazAvaliacao,
             fluencia_1ano_ativa: fluencia1ano,
+            fluencia_ativa: fluenciaAtiva,
           },
         },
       }),
@@ -147,6 +150,14 @@ describe('FluenciaService.criar', () => {
 
   it('município com faz_avaliacao = false -> 403', async () => {
     const { service, prisma } = setup({ fazAvaliacao: false });
+    await expect(service.criar(user, dto())).rejects.toBeInstanceOf(
+      ForbiddenException,
+    );
+    expect(prisma.fluencia_aplicacao.create).not.toHaveBeenCalled();
+  });
+
+  it('município com fluencia_ativa = false -> 403', async () => {
+    const { service, prisma } = setup({ fluenciaAtiva: false });
     await expect(service.criar(user, dto())).rejects.toBeInstanceOf(
       ForbiddenException,
     );

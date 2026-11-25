@@ -53,4 +53,13 @@ export class CreateMunicipioDto {
   @IsOptional()
   @IsBoolean()
   fluencia_1ano_ativa?: boolean;
+
+  @ApiPropertyOptional({
+    description:
+      'false = município sem avaliação de fluência em ciclo nenhum (a avaliação online segue valendo)',
+    default: true,
+  })
+  @IsOptional()
+  @IsBoolean()
+  fluencia_ativa?: boolean;
 }

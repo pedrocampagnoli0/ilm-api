@@ -146,7 +146,12 @@ export class FluenciaService {
           select: {
             municipio_id: true,
             municipio: {
-              select: { avaliacao_online_ativa: true, faz_avaliacao: true, fluencia_1ano_ativa: true },
+              select: {
+                avaliacao_online_ativa: true,
+                faz_avaliacao: true,
+                fluencia_1ano_ativa: true,
+                fluencia_ativa: true,
+              },
             },
           },
         },
@@ -155,7 +160,11 @@ export class FluenciaService {
     if (!turma) throw new NotFoundException('Turma não encontrada');
     assertEscreveNaTurma(user, turma.id, turma.escola_id);
     const municipio = turma.escola.municipio;
-    if (!municipio.avaliacao_online_ativa || !municipio.faz_avaliacao) {
+    if (
+      !municipio.avaliacao_online_ativa ||
+      !municipio.faz_avaliacao ||
+      !municipio.fluencia_ativa
+    ) {
       throw new ForbiddenException(
         'Avaliação de fluência não habilitada para este município.',
       );
